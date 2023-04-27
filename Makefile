@@ -1,8 +1,8 @@
 # Conntrack Exporter service
-SERVICE_NAME=infra-orch
-PROJECT_NAME=docker-infra-orch
-REPOSITORY_NAME=docker-infra-orch
-NAMESPACE_NAME=infra-orch
+SERVICE_NAME=mp-orch
+PROJECT_NAME=mp-orch
+REPOSITORY_NAME=mp-orch
+NAMESPACE_NAME=mp-orch
 
 #### #### #### #### #### #### ####
 # Load .env in order to use vars

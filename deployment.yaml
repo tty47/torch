@@ -17,7 +17,7 @@ spec:
     spec:
       serviceAccountName: pod-reader # Use the pod-reader service account
       containers:
-      - image: localhost:5000/docker-infra-orch:latest
+      - image: localhost:5000/mp-orch:latest
         name: infra-orch
         command:
           - /bin/sh
