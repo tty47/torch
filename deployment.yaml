@@ -1,0 +1,108 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: infra-orch
+  name: infra-orch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infra-orch
+  template:
+    metadata:
+      labels:
+        app: infra-orch
+    spec:
+      serviceAccountName: pod-reader # Use the pod-reader service account
+      containers:
+      - image: localhost:5000/docker-infra-orch:latest
+        name: infra-orch
+        command:
+          - /bin/sh
+          - -c
+        args:
+          - ./mp-orch --config-file /config/config.yaml
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: "/config"
+          readOnly: true
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "200m"
+          limits:
+            memory: "250Mi"
+            cpu: "250m"
+      volumes:
+      # You set volumes at the Pod level, then mount them into containers inside that Pod
+      - name: config
+        configMap:
+          # Provide the name of the ConfigMap you want to mount.
+          name: config
+          # An array of keys from the ConfigMap to create as files
+          items:
+          - key: config.yaml
+            path: config.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: infra-orch
+  name: infra-orch
+  namespace: default
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: infra-orch
+  type: ClusterIP
+---
+apiVersion: v1
+data:
+  config.yaml: |
+    mutualPeers:
+    - peers:
+      - da-bridge-1-0
+      - da-full-1-0
+    - peers:
+      - da-bridge-2-0
+      - da-full-2-0
+kind: ConfigMap
+metadata:
+  name: config
+  namespace: default
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-reader
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-reader-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["list"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-reader-binding
+subjects:
+- kind: ServiceAccount
+  name: pod-reader
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: pod-reader-role
+  apiGroup: rbac.authorization.k8s.io
