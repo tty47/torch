@@ -69,11 +69,17 @@ data:
   config.yaml: |
     mutualPeers:
     - peers:
-      - da-bridge-1-0
-      - da-full-1-0
+      - coredns-6d4b75cb6d-kkr4p
+      - kindnet-2pn7h
     - peers:
-      - da-bridge-2-0
-      - da-full-2-0
+      - coredns-6d4b75cb6d-kkr4p
+      - kindnet-whjt2
+    #- peers:
+    #  - da-bridge-1-0
+    #  - da-full-1-0
+    #- peers:
+    #  - da-bridge-2-0
+    #  - da-full-2-0
 kind: ConfigMap
 metadata:
   name: config

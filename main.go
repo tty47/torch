@@ -122,7 +122,7 @@ func listPodsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resJSON)
 
 	// Log the response details
-	log.Printf(string(resJSON))
+	//log.Printf(string(resJSON))
 	// Examples for error handling:
 	// - Use helper functions e.g. errors.IsNotFound()
 	// - And/or cast to StatusError and use its properties like e.g. ErrStatus.Message
@@ -190,7 +190,7 @@ func ParseFlags() {
 	}
 
 	// Print the struct
-	fmt.Printf("%+v\n", config)
+	fmt.Printf("Config File: %+v\n", config)
 }
 
 func main() {
