@@ -71,9 +71,11 @@ data:
     - peers:
       - coredns-6d4b75cb6d-kkr4p
       - kindnet-2pn7h
+      label: "app: kindnet"
     - peers:
       - coredns-6d4b75cb6d-kkr4p
       - kindnet-whjt2
+      label: "app: kindnet"
     #- peers:
     #  - da-bridge-1-0
     #  - da-full-1-0

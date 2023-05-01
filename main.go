@@ -38,53 +38,57 @@ type MutualPeersConfig struct {
 
 type PeersConfig struct {
 	Peers []string `yaml:"peers"`
+	Label string   `yaml:"label"`
 }
 
-func namespaceHandler(w http.ResponseWriter, r *http.Request) {
-	// Log the request details
-	reqLog := map[string]string{
-		"remote_addr": r.RemoteAddr,
-		"method":      r.Method,
-		"url":         r.URL.Path,
-	}
+var config MutualPeersConfig
 
-	reqLogJSON, _ := json.Marshal(reqLog)
-	log.Printf(string(reqLogJSON))
-
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		errorLog := map[string]interface{}{
-			"status":  404,
-			"message": "Not Found",
-		}
-		handleError(w, http.StatusNotFound, errorLog)
-		return
-	}
-
-	ns := getNamespace()
-	res := Response{
-		Status: http.StatusOK,
-		Body: struct {
-			Namespace string `json:"namespace"`
-			Nodes     []Node `json:"nodes"`
-		}{
-			Namespace: ns.Namespace,
-			Nodes:     ns.Nodes,
-		},
-		Errors: 0,
-	}
-
-	resJSON, _ := json.Marshal(res)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(resJSON)
-
-	// Log the response details
-	log.Printf(string(resJSON))
-}
+//func namespaceHandler(w http.ResponseWriter, r *http.Request) {
+//	// Log the request details
+//	reqLog := map[string]string{
+//		"remote_addr": r.RemoteAddr,
+//		"method":      r.Method,
+//		"url":         r.URL.Path,
+//	}
+//
+//	reqLogJSON, _ := json.Marshal(reqLog)
+//	log.Printf(string(reqLogJSON))
+//
+//	if r.URL.Path != "/" {
+//		http.NotFound(w, r)
+//		errorLog := map[string]interface{}{
+//			"status":  404,
+//			"message": "Not Found",
+//		}
+//		handleError(w, http.StatusNotFound, errorLog)
+//		return
+//	}
+//
+//	ns := getNamespace()
+//	res := Response{
+//		Status: http.StatusOK,
+//		Body: struct {
+//			Namespace string `json:"namespace"`
+//			Nodes     []Node `json:"nodes"`
+//		}{
+//			Namespace: ns.Namespace,
+//			Nodes:     ns.Nodes,
+//		},
+//		Errors: 0,
+//	}
+//
+//	resJSON, _ := json.Marshal(res)
+//
+//	w.Header().Set("Content-Type", "application/json")
+//	w.WriteHeader(http.StatusOK)
+//	w.Write(resJSON)
+//
+//	// Log the response details
+//	log.Printf(string(resJSON))
+//}
 
 func listPodsHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Config: %+v", config)
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -107,6 +111,11 @@ func listPodsHandler(w http.ResponseWriter, r *http.Request) {
 	// Print the name of each pod
 	for _, pod := range pods.Items {
 		fmt.Printf("Pod: %s\n", pod.Name)
+		fmt.Printf("Pod labels: %s\n", pod.GetLabels())
+		labels := pod.GetLabels()
+		for _, l := range labels {
+			fmt.Printf("Labels: %s\n", l)
+		}
 	}
 
 	res := Response{
@@ -140,17 +149,17 @@ func listPodsHandler(w http.ResponseWriter, r *http.Request) {
 	// time.Sleep(10 * time.Second)
 }
 
-func getNamespace() Namespace {
-	return Namespace{
-		Namespace: "example",
-		Nodes: []Node{
-			{Name: "node1", Type: "type1", Multiaddress: "/ip4/127.0.0.1/tcp/5001"},
-			{Name: "node2", Type: "type2", Multiaddress: "/ip4/127.0.0.1/tcp/5002"},
-			{Name: "node3", Type: "type3", Multiaddress: "/ip4/127.0.0.1/tcp/5003"},
-			{Name: "node4", Type: "type4", Multiaddress: "/ip4/127.0.0.1/tcp/5004"},
-		},
-	}
-}
+//func getNamespace() Namespace {
+//	return Namespace{
+//		Namespace: "example",
+//		Nodes: []Node{
+//			{Name: "node1", Type: "type1", Multiaddress: "/ip4/127.0.0.1/tcp/5001"},
+//			{Name: "node2", Type: "type2", Multiaddress: "/ip4/127.0.0.1/tcp/5002"},
+//			{Name: "node3", Type: "type3", Multiaddress: "/ip4/127.0.0.1/tcp/5003"},
+//			{Name: "node4", Type: "type4", Multiaddress: "/ip4/127.0.0.1/tcp/5004"},
+//		},
+//	}
+//}
 
 func handleError(w http.ResponseWriter, status int, errorLog interface{}) {
 	errorLogJSON, _ := json.Marshal(errorLog)
@@ -169,7 +178,7 @@ func handleError(w http.ResponseWriter, status int, errorLog interface{}) {
 	w.Write(resJSON)
 }
 
-func ParseFlags() {
+func ParseFlags() MutualPeersConfig {
 	// Define the flag
 	configFile := flag.String("config-file", "", "Path to the configuration file")
 
@@ -183,7 +192,6 @@ func ParseFlags() {
 	}
 
 	// Unmarshal the YAML into a struct
-	var config MutualPeersConfig
 	err = yaml.Unmarshal(file, &config)
 	if err != nil {
 		panic(err)
@@ -191,13 +199,15 @@ func ParseFlags() {
 
 	// Print the struct
 	fmt.Printf("Config File: %+v\n", config)
+
+	return config
 }
 
 func main() {
-	ParseFlags()
+	config = ParseFlags()
 
 	router := http.NewServeMux()
-	router.HandleFunc("/", namespaceHandler)
+	//	router.HandleFunc("/", namespaceHandler)
 	router.HandleFunc("/pods", listPodsHandler)
 
 	server := &http.Server{
