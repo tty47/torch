@@ -19,30 +19,40 @@ import (
 
 // Response represents the response structure.
 type Response struct {
-	Status int         `json:"status"`
-	Body   interface{} `json:"body"`
+	// Status HTTP code of the response.
+	Status int `json:"status"`
+	// Body response response body.
+	Body interface{} `json:"body"`
+	// Errors that occurred during the request, if any.
 	Errors interface{} `json:"errors,omitempty"`
 }
 
 // MutualPeersConfig represents the configuration structure.
 type MutualPeersConfig struct {
+	// List of mutual peers.
 	MutualPeers []*MutualPeer `yaml:"mutualPeers"`
 }
 
 // MutualPeer represents a mutual peer structure.
 type MutualPeer struct {
+	// List of peers.
 	Peers []Peer `yaml:"peers"`
 }
 
 // Peer represents a peer structure.
 type Peer struct {
+	// NodeName of the peer node.
 	NodeName string `yaml:"nodeName"`
 }
 
+// Configuration variables
 var (
-	cfg              MutualPeersConfig
+	// cfg stores the mutual peers configuration.
+	cfg MutualPeersConfig
+	// currentNamespace Stores the current namespace.
 	currentNamespace string
-	matchingPods     []string
+	// matchingPods Stores the matching pods.
+	matchingPods []string
 )
 
 // ParseFlags parses the command-line flags and reads the configuration file.
@@ -70,10 +80,8 @@ func ParseFlags() MutualPeersConfig {
 	return cfg
 }
 
-// GetConfig handles the HTTP GET request for retrieving the config as JSON.
+// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
 func List(w http.ResponseWriter, r *http.Request) {
-	log.Info("------------------------")
-
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
@@ -86,16 +94,15 @@ func List(w http.ResponseWriter, r *http.Request) {
 
 	log.Info("Namespace: ", currentNamespace)
 
-	// get pods in all the namespaces by omitting namespace
+	// get pods in the current namespace
 	pods, err := clientset.CoreV1().Pods(currentNamespace).List(context.TODO(), metav1.ListOptions{})
-	//pods, err := clientset.CoreV1().Pods(namespace.Items[0].Name).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		log.Error("Failed to get pod:", err)
+		log.Error("Failed to get pods:", err)
 	}
 
 	log.Info("There are ", len(pods.Items), " pods in the namespace")
 
-	// Check if the pods name of the nodeName match the config
+	// Check if the pod names match the configured NodeName values
 	for _, pod := range pods.Items {
 		podName := pod.Name
 		for _, mutualPeer := range cfg.MutualPeers {
@@ -109,7 +116,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Generate the response, adding the size of the array
+	// Generate the response, adding the matching pod names
 	resp := Response{
 		Status: http.StatusOK,
 		Body:   matchingPods,
@@ -133,7 +140,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 
 // GetConfig handles the HTTP GET request for retrieving the config as JSON.
 func GetConfig(w http.ResponseWriter, r *http.Request) {
-	// Generate the response, adding the size of the array
+	// Generate the response, including the configuration
 	resp := Response{
 		Status: http.StatusOK,
 		Body:   cfg,
@@ -176,14 +183,6 @@ func main() {
 	log.Info("Running on namespace: ", currentNamespace)
 	cfg = ParseFlags()
 	log.Info("Config File:\n", cfg)
-
-	// Access the parsed data
-	for _, mutualPeer := range cfg.MutualPeers {
-		log.Info("Peers:")
-		for _, peer := range mutualPeer.Peers {
-			log.Info("NodeName:", peer.NodeName)
-		}
-	}
 
 	httpPort := "8080"
 

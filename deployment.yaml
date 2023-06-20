@@ -79,6 +79,9 @@ data:
       - peers:
         - nodeName: "da-bridge-0"
         - nodeName: "consensus-validator-1-0"
+      - peers:
+        - nodeName: "test-pod"
+        - nodeName: "testing-pod-0"
 kind: ConfigMap
 metadata:
   name: config
