@@ -19,6 +19,9 @@ endif
 run:
 	go run ./main.go
 
+run-config:
+	go run ./main.go --config-file=./config-test.yaml
+
 build:
 	go build -o ./bin/${PROJECT_NAME} ./main.go
 

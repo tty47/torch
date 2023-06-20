@@ -1,0 +1,10 @@
+mutualPeers:
+  - peers:
+    - label: "app: bridge-1"
+    - label: "app: full-1"
+  - peers:
+    - label: "app: bridge-2"
+    - label: "app: full-2"
+  - peers:
+    - label: "app: bridge-2"
+    - label: "app: full-3"
