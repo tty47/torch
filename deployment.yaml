@@ -75,13 +75,19 @@ data:
     mutualPeers:
       - peers:
         - nodeName: "da-bridge-0"
+          containerName: "da"
         - nodeName: "da-full-0"
+          containerName: "da"
       - peers:
         - nodeName: "consensus-validator-1-0"
+          containerName: "validator"
         - nodeName: "consensus-full-1-0"
+          containerName: "full"
       - peers:
         - nodeName: "test-pod"
+          containerName: "pod"
         - nodeName: "testing-pod-0l"
+          containerName: "test"
 kind: ConfigMap
 metadata:
   name: config

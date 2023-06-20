@@ -51,7 +51,8 @@ type MutualPeer struct {
 // Peer represents a peer structure.
 type Peer struct {
 	// NodeName of the peer node.
-	NodeName string `yaml:"nodeName"`
+	NodeName      string `yaml:"nodeName"`
+	ContainerName string `yaml:"containerName"`
 }
 
 // Configuration variables
@@ -111,8 +112,7 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
-func List(w http.ResponseWriter, r *http.Request) {
+func GenerateList() []string {
 	// matchingPods Stores the matching pods.
 	var matchingPods []string
 
@@ -150,10 +150,18 @@ func List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// matchingPods Stores the matching pods.
+	return matchingPods
+}
+
+// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
+func List(w http.ResponseWriter, r *http.Request) {
+	listOfPods := GenerateList()
+
 	// Generate the response, adding the matching pod names
 	resp := Response{
 		Status: http.StatusOK,
-		Body:   matchingPods,
+		Body:   listOfPods,
 		Errors: nil,
 	}
 
@@ -180,14 +188,37 @@ func GenerateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Info(body.Body)
-	//command := []string{"echo", "Hello, World"}
-	command := []string{"touch", "/tmp/created-by-mp-orch"}
 
-	err = RunRemoteCommand("da-bridge-0", "da", "default", command)
+	command := []string{"touch", "/tmp/created-by-mp-orch"}
+	//listOfPods := GenerateList()
+
+	pod := ""
+	cont := ""
+
+	for _, mutualPeer := range cfg.MutualPeers {
+		for _, peer := range mutualPeer.Peers {
+			if peer.NodeName == body.Body {
+				log.Info("Pod found, executing remote command...")
+				pod = peer.NodeName
+				cont = peer.ContainerName
+			}
+		}
+	}
+	// TODO: add validation, if the pod is empty, that means that we cannot
+	// execute the command, and we have to stop the process here.
+
+	log.Info("Pod found, details: ", pod, " ", cont, " ", currentNamespace)
+
+	err = RunRemoteCommand(
+		pod,
+		cont,
+		currentNamespace,
+		command)
 	if err != nil {
 		log.Error("Error executing remote command: ", err)
 		return
 	}
+
 	// Generate the response, adding the matching pod names
 	resp := Response{
 		Status: http.StatusOK,

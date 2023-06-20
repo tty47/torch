@@ -1,10 +1,16 @@
 mutualPeers:
   - peers:
-    - nodeName: "bridge-1"
-    - nodeName: "full-1"
+    - nodeName: "da-bridge-0"
+      containerName: "da"
+    - nodeName: "da-full-0"
+      containerName: "da"
   - peers:
-    - nodeName: "bridge-2"
-    - nodeName: "full-2"
+    - nodeName: "consensus-validator-1-0"
+      containerName: "validator"
+    - nodeName: "consensus-full-1-0"
+      containerName: "full"
   - peers:
-    - nodeName: "bridge-2"
-    - nodeName: "full-3"
+    - nodeName: "test-pod"
+      containerName: "pod"
+    - nodeName: "testing-pod-0l"
+      containerName: "test"
