@@ -3,22 +3,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: infra-orch
-  name: infra-orch
+    app: mp-orch
+  name: mp-orch
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: infra-orch
+      app: mp-orch
   template:
     metadata:
       labels:
-        app: infra-orch
+        app: mp-orch
     spec:
-      serviceAccountName: pod-reader # Use the pod-reader service account
+      serviceAccountName: mp-orch # Use the pod-reader service account
       containers:
       - image: localhost:5000/mp-orch:latest
-        name: infra-orch
+        name: mp-orch
         command:
           - /bin/sh
           - -c
@@ -52,8 +52,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: infra-orch
-  name: infra-orch
+    app: mp-orch
+  name: mp-orch
   namespace: default
 spec:
   ports:
@@ -61,7 +61,7 @@ spec:
     protocol: TCP
     targetPort: 8080
   selector:
-    app: infra-orch
+    app: mp-orch
   type: ClusterIP
 ---
 apiVersion: v1
@@ -85,27 +85,27 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: pod-reader
+  name: mp-orch
   namespace: default
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: pod-reader-role
+  name: mp-orch-role
 rules:
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["list"]
+  verbs: ["list", "get", "watch"]
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: pod-reader-binding
+  name: mp-orch-binding
 subjects:
 - kind: ServiceAccount
-  name: pod-reader
+  name: mp-orch
   namespace: default
 roleRef:
   kind: ClusterRole
-  name: pod-reader-role
+  name: mp-orch-role
   apiGroup: rbac.authorization.k8s.io
