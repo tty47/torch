@@ -1,14 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 // Response represents the response structure.
@@ -30,10 +36,13 @@ type MutualPeer struct {
 
 // Peer represents a peer structure.
 type Peer struct {
-	Label string `yaml:"label"`
+	NodeName string `yaml:"nodeName"`
 }
 
-var config MutualPeersConfig
+var (
+	cfg              MutualPeersConfig
+	currentNamespace string
+)
 
 // ParseFlags parses the command-line flags and reads the configuration file.
 func ParseFlags() MutualPeersConfig {
@@ -51,13 +60,85 @@ func ParseFlags() MutualPeersConfig {
 	}
 
 	// Unmarshal the YAML into a struct
-	err = yaml.Unmarshal(file, &config)
+	err = yaml.Unmarshal(file, &cfg)
 	if err != nil {
 		log.Error("Cannot unmarshal the config file...", err)
 		panic(err)
 	}
 
-	return config
+	return cfg
+}
+
+// GetConfig handles the HTTP GET request for retrieving the config as JSON.
+func List(w http.ResponseWriter, r *http.Request) {
+	log.Info("------------------------")
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	log.Info("Namespace: ", currentNamespace)
+
+	// get pods in all the namespaces by omitting namespace
+	pods, err := clientset.CoreV1().Pods(currentNamespace).List(context.TODO(), metav1.ListOptions{})
+	//pods, err := clientset.CoreV1().Pods(namespace.Items[0].Name).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		log.Error("Failed to get pod:", err)
+	}
+
+	log.Info("There are ", len(pods.Items), " pods in the cluster")
+
+	// Check if the pods name of the nodeName match the config
+	for _, pod := range pods.Items {
+		log.Info("================================")
+		podName := pod.Name
+		log.Info("PodName", podName)
+		log.Info("================================")
+
+		for _, mutualPeer := range cfg.MutualPeers {
+			for _, peer := range mutualPeer.Peers {
+				log.Info("================================")
+				log.Info("NodeName", peer.NodeName)
+				log.Info("================================")
+				if podName == peer.NodeName {
+					// Match found
+					log.Info("Pod matches the name", pod.Name, peer.NodeName)
+					//fmt.Printf("Pod %s matches label %s\n", pod.Name, peer.Label)
+				} else {
+					log.Info("Pod NOT matches the name", pod.Name, peer.NodeName)
+				}
+			}
+		}
+	}
+
+	log.Info("================================")
+
+	// Generate the response, adding the size of the array
+	resp := Response{
+		Status: http.StatusOK,
+		Body:   pods.Items,
+		Errors: nil,
+	}
+
+	jsonData, err := json.Marshal(resp)
+	if err != nil {
+		log.Error("Error marshaling to JSON:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(jsonData)
+	if err != nil {
+		log.Error("Error writing response:", err)
+	}
 }
 
 // GetConfig handles the HTTP GET request for retrieving the config as JSON.
@@ -65,7 +146,7 @@ func GetConfig(w http.ResponseWriter, r *http.Request) {
 	// Generate the response, adding the size of the array
 	resp := Response{
 		Status: http.StatusOK,
-		Body:   config,
+		Body:   cfg,
 		Errors: nil,
 	}
 
@@ -92,16 +173,25 @@ func logRequest(handler http.Handler) http.Handler {
 	})
 }
 
+func init() {
+	currentNamespace = os.Getenv("POD_NAMESPACE")
+	if currentNamespace == "" {
+		log.Info("Current Namespace variable is not defined, using the default value")
+		currentNamespace = "default"
+	}
+}
+
 func main() {
 	// Parse the command-line flags and read the configuration file
-	config = ParseFlags()
-	log.Info("Config File:\n", config)
+	log.Info("Running on namespace: ", currentNamespace)
+	cfg = ParseFlags()
+	log.Info("Config File:\n", cfg)
 
 	// Access the parsed data
-	for _, mutualPeer := range config.MutualPeers {
+	for _, mutualPeer := range cfg.MutualPeers {
 		log.Info("Peers:")
 		for _, peer := range mutualPeer.Peers {
-			log.Info("Label:", peer.Label)
+			log.Info("NodeName:", peer.NodeName)
 		}
 	}
 
@@ -111,6 +201,7 @@ func main() {
 	r := mux.NewRouter()
 	r.Use(logRequest)
 	r.HandleFunc("/config", GetConfig).Methods("GET")
+	r.HandleFunc("/list", List).Methods("GET")
 
 	server := &http.Server{
 		Addr:    ":" + httpPort,

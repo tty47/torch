@@ -17,13 +17,18 @@ spec:
     spec:
       serviceAccountName: mp-orch # Use the pod-reader service account
       containers:
-      - image: localhost:5000/mp-orch:latest
-        name: mp-orch
+      - name: mp-orch
+        image: localhost:5000/mp-orch:latest
         command:
           - /bin/sh
           - -c
         args:
           - ./mp-orch --config-file /config/config.yaml
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -69,14 +74,8 @@ data:
   config.yaml: |
     mutualPeers:
       - peers:
-        - label: "app: bridge-1"
-        - label: "app: full-1"
-      - peers:
-        - label: "app: bridge-2"
-        - label: "app: full-2"
-      - peers:
-        - label: "app: bridge-2"
-        - label: "app: full-3"
+        - nodeName: "da-bridge"
+        - nodeName: "da-full"
 kind: ConfigMap
 metadata:
   name: config
@@ -95,6 +94,9 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["pods"]
+  verbs: ["list", "get", "watch"]
+- apiGroups: [""]
+  resources: ["namespaces"]
   verbs: ["list", "get", "watch"]
 ---
 kind: ClusterRoleBinding

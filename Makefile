@@ -53,3 +53,9 @@ docker_build_local_push:
 
 docker_run:
 	docker run -p 8080:8080 ${PROJECT_NAME}:latest
+
+kubectl_apply:
+	kubectl delete -f ./deployment.yaml ;\
+	kubectl apply -f ./deployment.yaml
+
+kubectl_deploy: docker_build_local_push kubectl_apply
