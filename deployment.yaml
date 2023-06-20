@@ -77,11 +77,11 @@ data:
         - nodeName: "da-bridge-0"
         - nodeName: "da-full-0"
       - peers:
-        - nodeName: "da-bridge-0"
         - nodeName: "consensus-validator-1-0"
+        - nodeName: "consensus-full-1-0"
       - peers:
         - nodeName: "test-pod"
-        - nodeName: "testing-pod-0"
+        - nodeName: "testing-pod-0l"
 kind: ConfigMap
 metadata:
   name: config
@@ -93,7 +93,7 @@ metadata:
   name: mp-orch
   namespace: default
 ---
-kind: ClusterRole
+kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: mp-orch-role
@@ -102,18 +102,21 @@ rules:
   resources: ["pods"]
   verbs: ["list", "get", "watch"]
 - apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+- apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["list", "get", "watch"]
 ---
-kind: ClusterRoleBinding
+kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: mp-orch-binding
+  name: mp-orch-rolebinding
 subjects:
 - kind: ServiceAccount
   name: mp-orch
   namespace: default
 roleRef:
-  kind: ClusterRole
+  kind: Role
   name: mp-orch-role
   apiGroup: rbac.authorization.k8s.io
