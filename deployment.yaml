@@ -74,8 +74,11 @@ data:
   config.yaml: |
     mutualPeers:
       - peers:
-        - nodeName: "da-bridge"
-        - nodeName: "da-full"
+        - nodeName: "da-bridge-0"
+        - nodeName: "da-full-0"
+      - peers:
+        - nodeName: "da-bridge-0"
+        - nodeName: "consensus-validator-1-0"
 kind: ConfigMap
 metadata:
   name: config

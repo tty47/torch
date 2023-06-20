@@ -42,6 +42,7 @@ type Peer struct {
 var (
 	cfg              MutualPeersConfig
 	currentNamespace string
+	matchingPods     []string
 )
 
 // ParseFlags parses the command-line flags and reads the configuration file.
@@ -92,37 +93,26 @@ func List(w http.ResponseWriter, r *http.Request) {
 		log.Error("Failed to get pod:", err)
 	}
 
-	log.Info("There are ", len(pods.Items), " pods in the cluster")
+	log.Info("There are ", len(pods.Items), " pods in the namespace")
 
 	// Check if the pods name of the nodeName match the config
 	for _, pod := range pods.Items {
-		log.Info("================================")
 		podName := pod.Name
-		log.Info("PodName", podName)
-		log.Info("================================")
-
 		for _, mutualPeer := range cfg.MutualPeers {
 			for _, peer := range mutualPeer.Peers {
-				log.Info("================================")
-				log.Info("NodeName", peer.NodeName)
-				log.Info("================================")
 				if podName == peer.NodeName {
 					// Match found
-					log.Info("Pod matches the name", pod.Name, peer.NodeName)
-					//fmt.Printf("Pod %s matches label %s\n", pod.Name, peer.Label)
-				} else {
-					log.Info("Pod NOT matches the name", pod.Name, peer.NodeName)
+					log.Info("Pod matches the name: ", pod.Name, " ", peer.NodeName)
+					matchingPods = append(matchingPods, podName)
 				}
 			}
 		}
 	}
 
-	log.Info("================================")
-
 	// Generate the response, adding the size of the array
 	resp := Response{
 		Status: http.StatusOK,
-		Body:   pods.Items,
+		Body:   matchingPods,
 		Errors: nil,
 	}
 
