@@ -118,7 +118,7 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	pod := body.Body
 	log.Info(pod)
 
-	_, err = k8s.GenerateTrustedPeersAddr(cfg, pod)
+	output, err := k8s.GenerateTrustedPeersAddr(cfg, pod)
 	if err != nil {
 		log.Error("Error: ", err)
 		resp := Response{
@@ -129,9 +129,12 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 		ReturnResponse(resp, w, r)
 	}
 
+	nodeId := make(map[string]string)
+	nodeId[pod] = output
+
 	resp = Response{
 		Status: http.StatusOK,
-		Body:   pod,
+		Body:   nodeId,
 		Errors: nil,
 	}
 	ReturnResponse(resp, w, r)
