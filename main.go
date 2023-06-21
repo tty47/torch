@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -180,34 +181,87 @@ func List(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GenerateConfig(w http.ResponseWriter, r *http.Request) {
+func storeKeyValue(nodeMap map[string]string, nodeName, address string) {
+	nodeMap[nodeName] = address
+}
+
+func GetTrustedPeerCommand() []string {
+	script := fmt.Sprintf(`#!/bin/sh
+# add the prefix to the addr
+if [ -f /tmp/TP-ADDR ];then
+  cat /tmp/TP-ADDR
+fi
+`)
+
+	return []string{"sh", "-c", script}
+}
+
+func CreateTrustedPeerCommand() []string {
+	trusteedPeerPrefix := "/dns/$(hostname)/tcp/2121/p2p/"
+
+	script := fmt.Sprintf(`#!/bin/sh
+# add the prefix to the addr
+echo -n "%s" > /tmp/TP-ADDR
+
+# generate the token
+export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
+
+# remove the first warning line...
+export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
+
+# make the request and parse the response
+TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
+     --header="Content-Type: application/json" \
+     --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
+     --output-document - \
+     http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
+
+echo -n "${TP_ADDR}" >> /tmp/TP-ADDR
+cat /tmp/TP-ADDR
+`, trusteedPeerPrefix)
+
+	return []string{"sh", "-c", script}
+}
+
+// validateNode check if an input node is available in the config
+func validateNode(n string) (bool, string, string) {
+	// check if the node received by the request is on the list, if so, we
+	// continue the process
+	for _, mutualPeer := range cfg.MutualPeers {
+		for _, peer := range mutualPeer.Peers {
+			if peer.NodeName == n {
+				log.Info("Pod found in the config, executing remote command...")
+				return true, peer.NodeName, peer.ContainerName
+			}
+		}
+	}
+
+	return false, "", ""
+}
+
+func GenerateTrustedPeersAddr(w http.ResponseWriter, r *http.Request) {
 	var body RequestBody
+
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		log.Error("Error decoding the request body into the struct:", err)
 	}
 
 	log.Info(body.Body)
-
-	command := []string{"touch", "/tmp/created-by-mp-orch"}
-	//listOfPods := GenerateList()
-
-	pod := ""
-	cont := ""
-
-	for _, mutualPeer := range cfg.MutualPeers {
-		for _, peer := range mutualPeer.Peers {
-			if peer.NodeName == body.Body {
-				log.Info("Pod found, executing remote command...")
-				pod = peer.NodeName
-				cont = peer.ContainerName
-			}
-		}
-	}
 	// TODO: add validation, if the pod is empty, that means that we cannot
 	// execute the command, and we have to stop the process here.
 
-	log.Info("Pod found, details: ", pod, " ", cont, " ", currentNamespace)
+	// get the command
+	command := CreateTrustedPeerCommand()
+
+	// validate if the node received is ok
+	ok, pod, cont := validateNode(body.Body)
+	if !ok {
+		log.Error("Pod name not valid", pod)
+		return
+	}
+
+	log.Info("Pod found: ", pod, " ", cont, " ", currentNamespace)
 
 	err = RunRemoteCommand(
 		pod,
@@ -253,9 +307,6 @@ func RunRemoteCommand(nodeName, container, namespace string, command []string) e
 		log.Error("Error: ", err.Error())
 		panic(err.Error())
 	}
-
-	// Convert the command slice to a single string value
-	//commandStr := strings.Join(command, " ")
 
 	// Create a request to execute the command on the specified node.
 	req := clientset.CoreV1().RESTClient().Post().
@@ -339,7 +390,7 @@ func main() {
 	r.Use(logRequest)
 	r.HandleFunc("/config", GetConfig).Methods("GET")
 	r.HandleFunc("/list", List).Methods("GET")
-	r.HandleFunc("/gen", GenerateConfig).Methods("POST")
+	r.HandleFunc("/gen", GenerateTrustedPeersAddr).Methods("POST")
 
 	server := &http.Server{
 		Addr:    ":" + httpPort,

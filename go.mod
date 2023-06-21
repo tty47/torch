@@ -1,4 +1,4 @@
-module github.com/celestiaorg/mp-orch
+module github.com/jrmanes/mp-orch
 
 go 1.20
 

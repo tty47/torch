@@ -44,9 +44,11 @@ golangci:
 
 # Docker
 docker_build:
+	GOOS=linux go build -o ./mp-orch ./main.go
 	docker build -f Dockerfile -t ${PROJECT_NAME} -t ${PROJECT_NAME}:latest .
 
 docker_build_local_push:
+	GOOS=linux go build -o ./mp-orch ./main.go
 	docker build  -f Dockerfile -t ${PROJECT_NAME} .
 	docker tag ${PROJECT_NAME}:latest localhost:5000/${REPOSITORY_NAME}:latest
 	docker push localhost:5000/${REPOSITORY_NAME}:latest
