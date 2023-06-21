@@ -15,6 +15,11 @@ type RequestBody struct {
 	Body string `json:"podName"`
 }
 
+type RequestMultipleNodesBody struct {
+	// Body response response body.
+	Body []string `json:"podName"`
+}
+
 // Response represents the response structure.
 type Response struct {
 	// Status HTTP code of the response.
@@ -113,7 +118,7 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	pod := body.Body
 	log.Info(pod)
 
-	output, err := k8s.GenerateTrustedPeersAddr(cfg, pod)
+	_, err = k8s.GenerateTrustedPeersAddr(cfg, pod)
 	if err != nil {
 		log.Error("Error: ", err)
 		resp := Response{
@@ -123,13 +128,58 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 		}
 		ReturnResponse(resp, w, r)
 	}
-	log.Info("***********")
-	log.Info(output)
-	log.Info("***********")
 
 	resp = Response{
 		Status: http.StatusOK,
 		Body:   pod,
+		Errors: nil,
+	}
+	ReturnResponse(resp, w, r)
+}
+
+// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
+func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
+	var body RequestMultipleNodesBody
+	var resp Response
+
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		log.Error("Error decoding the request body into the struct:", err)
+		resp := Response{
+			Status: http.StatusInternalServerError,
+			Body:   body.Body,
+			Errors: err,
+		}
+		ReturnResponse(resp, w, r)
+	}
+
+	pod := body.Body
+	log.Info(pod)
+
+	nodeIDs, err := k8s.GenerateAllTrustedPeersAddr(cfg, pod)
+	if err != nil {
+		log.Error("Error: ", err)
+		resp := Response{
+			Status: http.StatusInternalServerError,
+			Body:   pod,
+			Errors: err,
+		}
+		ReturnResponse(resp, w, r)
+	}
+
+	// remove if the ids is empty
+	for nodeName, id := range nodeIDs {
+		if id == "" {
+			//log.Info("Node Name:", nodeName)
+			//log.Info("IDs:", id)
+			//log.Info("---------------------")
+			delete(nodeIDs, nodeName)
+		}
+	}
+
+	resp = Response{
+		Status: http.StatusOK,
+		Body:   nodeIDs,
 		Errors: nil,
 	}
 	ReturnResponse(resp, w, r)

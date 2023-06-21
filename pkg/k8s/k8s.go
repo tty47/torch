@@ -33,6 +33,13 @@ type Response struct {
 	Errors interface{} `json:"errors,omitempty"`
 }
 
+type NodeAddress struct {
+	NodeName string
+	ID       string
+}
+
+var nodeIDsMap map[string]string
+
 // GetCurrentNamespace gets the current namespace from the environment variable.
 // If the variable is not defined, the default value "default" is used.
 func GetCurrentNamespace() string {
@@ -169,6 +176,51 @@ func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string,
 	}
 
 	return output, nil
+}
+
+// Function to store the nodeName-address pair in the map
+func StoreNodeIDs(nodeName, id string) {
+	if nodeIDsMap == nil {
+		nodeIDsMap = make(map[string]string)
+	}
+	nodeIDsMap[nodeName] = id
+}
+
+// Function to get all data from the nodeAddressMap
+func GetAllIDs() map[string]string {
+	data := make(map[string]string)
+
+	// Iterate over the map and copy the data to a new map
+	for nodeName, id := range nodeIDsMap {
+		data[nodeName] = id
+	}
+
+	return data
+}
+
+// GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
+func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
+	// get the command
+	command := CreateTrustedPeerCommand()
+
+	for _, mutualPeer := range cfg.MutualPeers {
+		for _, peer := range mutualPeer.Peers {
+			log.Info("Generating config for node:", peer.NodeName)
+
+			output, err := RunRemoteCommand(
+				peer.NodeName,
+				peer.ContainerName,
+				GetCurrentNamespace(),
+				command)
+			if err != nil {
+				log.Error("Error executing remote command: ", err)
+				return nodeIDsMap, err
+			}
+			StoreNodeIDs(peer.NodeName, output)
+		}
+	}
+
+	return nodeIDsMap, nil
 }
 
 // RunRemoteCommand executes a remote command on the specified node.

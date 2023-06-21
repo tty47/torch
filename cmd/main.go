@@ -65,6 +65,9 @@ func main() {
 	r.HandleFunc("/gen", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Gen(w, r, cfg)
 	}).Methods("POST")
+	r.HandleFunc("/genAll", func(w http.ResponseWriter, r *http.Request) {
+		handlers.GenAll(w, r, cfg)
+	}).Methods("POST")
 
 	server := &http.Server{
 		Addr:    ":" + httpPort,
