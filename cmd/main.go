@@ -14,21 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type RequestBody struct {
-	// Body response response body.
-	Body string `json:"podName"`
-}
-
-// Response represents the response structure.
-type Response struct {
-	// Status HTTP code of the response.
-	Status int `json:"status"`
-	// Body response response body.
-	Body interface{} `json:"body"`
-	// Errors that occurred during the request, if any.
-	Errors interface{} `json:"errors,omitempty"`
-}
-
 // Configuration variables
 var (
 	// cfg stores the mutual peers configuration.

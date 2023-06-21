@@ -34,16 +34,19 @@ type Response struct {
 	Errors interface{} `json:"errors,omitempty"`
 }
 
+// GetCurrentNamespace gets the current namespace from the environment variable.
+// If the variable is not defined, the default value "default" is used.
 func GetCurrentNamespace() string {
 	// currentNamespace Stores the current namespace.
 	currentNamespace := os.Getenv("POD_NAMESPACE")
 	if currentNamespace == "" {
-		log.Info("Current Namespace variable is not defined, using the default value")
+		log.Warn("Current Namespace variable is not defined, using the default value")
 		return "default"
 	}
 	return currentNamespace
 }
 
+// GenerateList generates a list of matching pods based on the configured NodeName values.
 func GenerateList(cfg config.MutualPeersConfig) []string {
 	// matchingPods Stores the matching pods.
 	var matchingPods []string
@@ -86,6 +89,7 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 	return matchingPods
 }
 
+// GetTrustedPeerCommand generates the command for retrieving trusted peer information.
 func GetTrustedPeerCommand() []string {
 	script := fmt.Sprintf(`#!/bin/sh
 # add the prefix to the addr
@@ -97,6 +101,7 @@ fi
 	return []string{"sh", "-c", script}
 }
 
+// CreateTrustedPeerCommand generates the command for creating trusted peers.
 func CreateTrustedPeerCommand(cfg config.MutualPeersConfig) []string {
 	trusteedPeerPrefix := "/dns/$(hostname)/tcp/2121/p2p/"
 
@@ -124,7 +129,7 @@ cat /tmp/TP-ADDR
 	return []string{"sh", "-c", script}
 }
 
-// validateNode check if an input node is available in the config
+// validateNode checks if an input node is available in the config.
 func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string) {
 	// check if the node received by the request is on the list, if so, we
 	// continue the process
@@ -140,6 +145,7 @@ func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string)
 	return false, "", ""
 }
 
+// GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateTrustedPeersAddr(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	var body RequestBody
 
@@ -149,8 +155,6 @@ func GenerateTrustedPeersAddr(w http.ResponseWriter, r *http.Request, cfg config
 	}
 
 	log.Info(body.Body)
-	// TODO: add validation, if the pod is empty, that means that we cannot
-	// execute the command, and we have to stop the process here.
 
 	// get the command
 	command := CreateTrustedPeerCommand(cfg)

@@ -17,13 +17,13 @@ endif
 # Go
 .PHYONY: run build test test_cover get docs
 run:
-	go run ./main.go
+	go run ./cmd/main.go
 
 run-config:
-	go run ./main.go --config-file=./config-test.yaml
+	go run ./cmd/main.go --config-file=./config-test.yaml
 
 build:
-	go build -o ./bin/${PROJECT_NAME} ./main.go
+	go build -o ./bin/${PROJECT_NAME} ./cmd/main.go
 
 test:
 	go test ./... -v -cover .
@@ -44,11 +44,11 @@ golangci:
 
 # Docker
 docker_build:
-	GOOS=linux go build -o ./mp-orch ./main.go
+	GOOS=linux go build -o ./mp-orch ./cmd/main.go
 	docker build -f Dockerfile -t ${PROJECT_NAME} -t ${PROJECT_NAME}:latest .
 
 docker_build_local_push:
-	GOOS=linux go build -o ./mp-orch ./main.go
+	GOOS=linux go build -o ./mp-orch ./cmd/main.go
 	docker build  -f Dockerfile -t ${PROJECT_NAME} .
 	docker tag ${PROJECT_NAME}:latest localhost:5000/${REPOSITORY_NAME}:latest
 	docker push localhost:5000/${REPOSITORY_NAME}:latest
