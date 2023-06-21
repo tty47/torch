@@ -63,7 +63,7 @@ func main() {
 		handlers.List(w, r, cfg)
 	}).Methods("GET")
 	r.HandleFunc("/gen", func(w http.ResponseWriter, r *http.Request) {
-		k8s.GenerateTrustedPeersAddr(w, r, cfg)
+		handlers.Gen(w, r, cfg)
 	}).Methods("POST")
 
 	server := &http.Server{

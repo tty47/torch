@@ -94,6 +94,63 @@ func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) 
 	}
 }
 
+// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
+func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
+	var body RequestBody
+	var resp Response
+
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		log.Error("Error decoding the request body into the struct:", err)
+		resp := Response{
+			Status: http.StatusInternalServerError,
+			Body:   body.Body,
+			Errors: err,
+		}
+		ReturnResponse(resp, w, r)
+	}
+
+	pod := body.Body
+	log.Info(pod)
+
+	output, err := k8s.GenerateTrustedPeersAddr(cfg, pod)
+	if err != nil {
+		log.Error("Error: ", err)
+		resp := Response{
+			Status: http.StatusInternalServerError,
+			Body:   pod,
+			Errors: err,
+		}
+		ReturnResponse(resp, w, r)
+	}
+	log.Info("***********")
+	log.Info(output)
+	log.Info("***********")
+
+	resp = Response{
+		Status: http.StatusOK,
+		Body:   pod,
+		Errors: nil,
+	}
+	ReturnResponse(resp, w, r)
+}
+
+func ReturnResponse(resp Response, w http.ResponseWriter, r *http.Request) {
+	jsonData, err := json.Marshal(resp)
+	if err != nil {
+		log.Error("Error marshaling to JSON:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(jsonData)
+	if err != nil {
+		log.Error("Error writing response:", err)
+	}
+}
+
 // logRequest is a middleware function that logs the incoming request.
 func LogRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

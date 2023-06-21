@@ -1,11 +1,10 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 
 	"github.com/jrmanes/mp-orch/config"
@@ -102,7 +101,7 @@ fi
 }
 
 // CreateTrustedPeerCommand generates the command for creating trusted peers.
-func CreateTrustedPeerCommand(cfg config.MutualPeersConfig) []string {
+func CreateTrustedPeerCommand() []string {
 	trusteedPeerPrefix := "/dns/$(hostname)/tcp/2121/p2p/"
 
 	script := fmt.Sprintf(`#!/bin/sh
@@ -146,62 +145,34 @@ func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string)
 }
 
 // GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
-func GenerateTrustedPeersAddr(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
-	var body RequestBody
-
-	err := json.NewDecoder(r.Body).Decode(&body)
-	if err != nil {
-		log.Error("Error decoding the request body into the struct:", err)
-	}
-
-	log.Info(body.Body)
-
+func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string, error) {
 	// get the command
-	command := CreateTrustedPeerCommand(cfg)
+	command := CreateTrustedPeerCommand()
 
 	// validate if the node received is ok
-	ok, pod, cont := validateNode(body.Body, cfg)
+	ok, pod, cont := validateNode(pod, cfg)
 	if !ok {
 		log.Error("Pod name not valid", pod)
-		return
+		return "", errors.New("Pod name not valid...")
 	}
 
 	log.Info("Pod found: ", pod, " ", cont, " ", GetCurrentNamespace())
 
-	err = RunRemoteCommand(
+	output, err := RunRemoteCommand(
 		pod,
 		cont,
 		GetCurrentNamespace(),
 		command)
 	if err != nil {
 		log.Error("Error executing remote command: ", err)
-		return
+		return "", err
 	}
 
-	// Generate the response, adding the matching pod names
-	resp := Response{
-		Status: http.StatusOK,
-		Body:   body,
-		Errors: nil,
-	}
-
-	jsonData, err := json.Marshal(resp)
-	if err != nil {
-		log.Error("Error marshaling to JSON:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(jsonData)
-	if err != nil {
-		log.Error("Error writing response:", err)
-	}
+	return output, nil
 }
 
 // RunRemoteCommand executes a remote command on the specified node.
-func RunRemoteCommand(nodeName, container, namespace string, command []string) error {
+func RunRemoteCommand(nodeName, container, namespace string, command []string) (string, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Error("Error: ", err.Error())
@@ -228,40 +199,34 @@ func RunRemoteCommand(nodeName, container, namespace string, command []string) e
 			TTY:       false,
 		}, scheme.ParameterCodec)
 
-	// Set up the writer for capturing the command output.
-	outputWriter := io.Writer(os.Stdout)
-
 	// Execute the remote command.
-	err = executeCommand(config, req, outputWriter)
+	output, err := executeCommand(config, req)
 	if err != nil {
 		log.Error("failed to execute remote command: ", err)
 	}
 
-	return nil
+	return output, nil
 }
 
 // executeCommand executes the remote command using the provided configuration, request, and output writer.
-func executeCommand(config *rest.Config, req *rest.Request, outputWriter io.Writer) error {
+func executeCommand(config *rest.Config, req *rest.Request) (string, error) {
 	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
 		log.Error("failed to create SPDY executor: ", err)
 	}
 
 	// Prepare the standard I/O streams.
-	stdin := io.Reader(nil) // Set stdin to nil
-	stdout := outputWriter
-	stderr := outputWriter
+	var stdout, stderr bytes.Buffer
 
 	// Execute the remote command and capture the output.
 	err = executor.Stream(remotecommand.StreamOptions{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
 	})
-
 	if err != nil {
 		log.Error("failed to execute command stream: ", err)
 	}
 
-	return nil
+	return stdout.String(), nil
 }
