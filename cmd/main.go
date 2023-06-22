@@ -7,9 +7,9 @@ import (
 
 	"github.com/jrmanes/mp-orch/config"
 	handlers "github.com/jrmanes/mp-orch/pkg/http"
-	"github.com/jrmanes/mp-orch/pkg/k8s"
 
 	"github.com/gorilla/mux"
+	"github.com/jrmanes/mp-orch/pkg/k8s"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )

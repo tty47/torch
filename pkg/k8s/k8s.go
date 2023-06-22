@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/jrmanes/mp-orch/config"
+
 	log "github.com/sirupsen/logrus"
 
 	v1 "k8s.io/api/core/v1"
@@ -19,13 +20,14 @@ import (
 )
 
 type NodeAddress struct {
-	NodeName string
 	ID       string
+	NodeName string
 }
 
-var nodeIDsMap map[string]string
-
-var trustedPeerFile = "/tmp/TP-ADDR"
+var (
+	nodeIDsMap      map[string]string
+	trustedPeerFile = "/tmp/TP-ADDR"
+)
 
 // GetCurrentNamespace gets the current namespace from the environment variable.
 // If the variable is not defined, the default value "default" is used.
@@ -176,7 +178,7 @@ func StoreNodeIDs(nodeName, id string) {
 	nodeIDsMap[nodeName] = id
 }
 
-// Function to get all data from the nodeAddressMap
+// GetAllIDs returns the nodeIDsMap
 func GetAllIDs() map[string]string {
 	return nodeIDsMap
 }
