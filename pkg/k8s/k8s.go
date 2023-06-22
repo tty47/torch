@@ -93,6 +93,8 @@ fi`, trustedPeerFile)
 }
 
 // CreateTrustedPeerCommand generates the command for creating trusted peers.
+// we have to use the shell script because we can only get the token and the
+// nodeID from the node itself
 func CreateTrustedPeerCommand() []string {
 	trusteedPeerPrefix := "/dns/$(hostname)/tcp/2121/p2p/"
 
@@ -176,14 +178,7 @@ func StoreNodeIDs(nodeName, id string) {
 
 // Function to get all data from the nodeAddressMap
 func GetAllIDs() map[string]string {
-	data := make(map[string]string)
-
-	// Iterate over the map and copy the data to a new map
-	for nodeName, id := range nodeIDsMap {
-		data[nodeName] = id
-	}
-
-	return data
+	return nodeIDsMap
 }
 
 // GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.

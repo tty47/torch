@@ -75,12 +75,13 @@ func GetConfig(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersCon
 
 // List handles the HTTP GET request for retrieving the list of matching pods as JSON.
 func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
-	listOfPods := k8s.GenerateList(cfg)
+	//listOfPods := k8s.GenerateList(cfg)
+	nodeIDs := k8s.GetAllIDs()
 
 	// Generate the response, adding the matching pod names
 	resp := Response{
 		Status: http.StatusOK,
-		Body:   listOfPods,
+		Body:   nodeIDs,
 		Errors: nil,
 	}
 
