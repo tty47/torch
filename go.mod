@@ -1,4 +1,4 @@
-module github.com/jrmanes/mp-orch
+module github.com/jrmanes/tp-orch
 
 go 1.20
 

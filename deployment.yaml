@@ -3,27 +3,27 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: mp-orch
-  name: mp-orch
+    app: tp-orch
+  name: tp-orch
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mp-orch
+      app: tp-orch
   template:
     metadata:
       labels:
-        app: mp-orch
+        app: tp-orch
     spec:
-      serviceAccountName: mp-orch # Use the pod-reader service account
+      serviceAccountName: tp-orch # Use the pod-reader service account
       containers:
-      - name: mp-orch
-        image: localhost:5000/mp-orch:latest
+      - name: tp-orch
+        image: localhost:5000/tp-orch:latest
         command:
           - /bin/sh
           - -c
         args:
-          - ./mp-orch --config-file /config/config.yaml
+          - ./tp-orch --config-file /config/config.yaml
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -57,8 +57,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: mp-orch
-  name: mp-orch
+    app: tp-orch
+  name: tp-orch
   namespace: default
 spec:
   ports:
@@ -66,7 +66,7 @@ spec:
     protocol: TCP
     targetPort: 8080
   selector:
-    app: mp-orch
+    app: tp-orch
   type: ClusterIP
 ---
 apiVersion: v1
@@ -91,13 +91,13 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: mp-orch
+  name: tp-orch
   namespace: default
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: mp-orch-role
+  name: tp-orch-role
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -112,12 +112,12 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: mp-orch-rolebinding
+  name: tp-orch-rolebinding
 subjects:
 - kind: ServiceAccount
-  name: mp-orch
+  name: tp-orch
   namespace: default
 roleRef:
   kind: Role
-  name: mp-orch-role
+  name: tp-orch-role
   apiGroup: rbac.authorization.k8s.io

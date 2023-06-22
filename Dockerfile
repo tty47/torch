@@ -6,13 +6,13 @@ RUN go mod download
 #COPY . .
 #COPY main.go .
 
-COPY mp-orch /go/bin/
+COPY tp-orch /go/bin/
 RUN ls -ltar /go/bin/
 
 #RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.gitCommit=$(git rev-list -1 HEAD)" -o /go/bin/main ./main.go
-#RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/mp-orch ./main.go
+#RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/tp-orch ./main.go
 
 FROM alpine:latest
 WORKDIR /
-COPY --from=builder /go/bin/mp-orch .
-ENTRYPOINT ["./mp-orch"]
+COPY --from=builder /go/bin/tp-orch .
+ENTRYPOINT ["./tp-orch"]

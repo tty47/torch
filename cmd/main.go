@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/jrmanes/mp-orch/config"
-	handlers "github.com/jrmanes/mp-orch/pkg/http"
+	"github.com/jrmanes/tp-orch/config"
+	handlers "github.com/jrmanes/tp-orch/pkg/http"
 
 	"github.com/gorilla/mux"
-	"github.com/jrmanes/mp-orch/pkg/k8s"
+	"github.com/jrmanes/tp-orch/pkg/k8s"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )

@@ -1,8 +1,8 @@
 # Conntrack Exporter service
-SERVICE_NAME=mp-orch
-PROJECT_NAME=mp-orch
-REPOSITORY_NAME=mp-orch
-NAMESPACE_NAME=mp-orch
+SERVICE_NAME=tp-orch
+PROJECT_NAME=tp-orch
+REPOSITORY_NAME=tp-orch
+NAMESPACE_NAME=tp-orch
 
 #### #### #### #### #### #### ####
 # Load .env in order to use vars
@@ -44,11 +44,11 @@ golangci:
 
 # Docker
 docker_build:
-	GOOS=linux go build -o ./mp-orch ./cmd/main.go
+	GOOS=linux go build -o ./tp-orch ./cmd/main.go
 	docker build -f Dockerfile -t ${PROJECT_NAME} -t ${PROJECT_NAME}:latest .
 
 docker_build_local_push:
-	GOOS=linux go build -o ./mp-orch ./cmd/main.go
+	GOOS=linux go build -o ./tp-orch ./cmd/main.go
 	docker build  -f Dockerfile -t ${PROJECT_NAME} .
 	docker tag ${PROJECT_NAME}:latest localhost:5000/${REPOSITORY_NAME}:latest
 	docker push localhost:5000/${REPOSITORY_NAME}:latest

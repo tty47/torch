@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/jrmanes/mp-orch/config"
-	"github.com/jrmanes/mp-orch/pkg/k8s"
+	"github.com/jrmanes/tp-orch/config"
+	"github.com/jrmanes/tp-orch/pkg/k8s"
 
 	log "github.com/sirupsen/logrus"
 )
