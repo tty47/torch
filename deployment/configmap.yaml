@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+  namespace: default
+data:
+  config.yaml: |
+    mutualPeers:
+      - peers:
+        - nodeName: "da-bridge-0"
+          containerName: "da"
+        - nodeName: "da-full-0"
+          containerName: "da"
+      - peers:
+        - nodeName: "test-pod"
+          containerName: "pod"
+        - nodeName: "testing-pod-0l"
+          containerName: "test"
