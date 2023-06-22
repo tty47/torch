@@ -52,6 +52,7 @@ fi`, trustedPeerFile, trusteedPeerPrefix)
 	return []string{"sh", "-c", script}
 }
 
+// BulkTrustedPeerCommand generates the peers content in the files
 func BulkTrustedPeerCommand(tp string) []string {
 	script := fmt.Sprintf(`#!/bin/sh
 # create the folder if doesnt exists

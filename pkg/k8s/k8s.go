@@ -169,13 +169,13 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 		}
 	}
 
-	// bulk the data
+	// generate the data on the nodes by calling BulkTrusteedPeers
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
 			// Check if the peer's NodeName is present in the podMap
 			if _, exists := podMap[peer.NodeName]; exists {
 				log.Info("Generating config for node:", peer.NodeName)
-				BulkTrustePeers(cfg, *mutualPeer)
+				BulkTrustedPeers(cfg, *mutualPeer)
 				break // Skip to the next mutualPeer
 			}
 		}
@@ -184,15 +184,13 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 	return nodeIDsMap, nil
 }
 
-func BulkTrustePeers(cfg config.MutualPeersConfig, pods config.MutualPeer) {
+func BulkTrustedPeers(cfg config.MutualPeersConfig, pods config.MutualPeer) {
 	// Get the data from the map
 	data := GetAllIDs()
 
 	// Loop through the peers in the config and check if they have the TP-ADDR file
 	for key := range data {
-		log.Info("Data key: ", key)
-		for index, pod := range pods.Peers {
-			log.Info("INDEX: ", index)
+		for _, pod := range pods.Peers {
 			if key != pod.NodeName {
 				log.Info("this is a different one: ", data[key], " ", pod.NodeName)
 				command := BulkTrustedPeerCommand(data[key])
