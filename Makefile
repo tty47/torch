@@ -30,7 +30,7 @@ docker_build:
 	docker build -f Dockerfile -t ${PROJECT_NAME} -t ${PROJECT_NAME}:latest .
 
 docker_build_local_push:
-	GOOS=linux go build -o ./torch ./cmd/main.go
+	#GOOS=linux go build -o ./torch ./cmd/main.go
 	docker build  -f Dockerfile -t ${PROJECT_NAME} .
 	docker tag ${PROJECT_NAME}:latest localhost:5000/${REPOSITORY_NAME}:latest
 	docker push localhost:5000/${REPOSITORY_NAME}:latest
@@ -39,7 +39,7 @@ docker_run:
 	docker run -p 8080:8080 ${PROJECT_NAME}:latest
 
 kubectl_apply:
-	kubectl delete -f ./deployment.yaml ;\
-	kubectl apply -f ./deployment.yaml
+	kubectl delete -f ./deployment/deployment.yaml ;\
+	kubectl apply -f ./deployment/deployment.yaml
 
-kubectl_deploy: docker_build kubectl_apply
+kubectl_deploy: docker_build_local_push kubectl_apply
