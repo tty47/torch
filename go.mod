@@ -1,4 +1,4 @@
-module github.com/jrmanes/tp-orch
+module github.com/jrmanes/torch
 
 go 1.20
 

@@ -1,8 +1,8 @@
 # Conntrack Exporter service
-SERVICE_NAME=tp-orch
-PROJECT_NAME=tp-orch
-REPOSITORY_NAME=tp-orch
-NAMESPACE_NAME=tp-orch
+SERVICE_NAME=torch
+PROJECT_NAME=torch
+REPOSITORY_NAME=torch
+NAMESPACE_NAME=torch
 
 #### #### #### #### #### #### ####
 # Load .env in order to use vars
@@ -44,11 +44,11 @@ golangci:
 
 # Docker
 docker_build:
-	GOOS=linux go build -o ./tp-orch ./cmd/main.go
+	GOOS=linux go build -o ./torch ./cmd/main.go
 	docker build -f Dockerfile -t ${PROJECT_NAME} -t ${PROJECT_NAME}:latest .
 
 docker_build_local_push:
-	GOOS=linux go build -o ./tp-orch ./cmd/main.go
+	GOOS=linux go build -o ./torch ./cmd/main.go
 	docker build  -f Dockerfile -t ${PROJECT_NAME} .
 	docker tag ${PROJECT_NAME}:latest localhost:5000/${REPOSITORY_NAME}:latest
 	docker push localhost:5000/${REPOSITORY_NAME}:latest

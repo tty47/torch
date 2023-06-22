@@ -3,27 +3,27 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: tp-orch
-  name: tp-orch
+    app: torch
+  name: torch
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tp-orch
+      app: torch
   template:
     metadata:
       labels:
-        app: tp-orch
+        app: torch
     spec:
-      serviceAccountName: tp-orch # Use the pod-reader service account
+      serviceAccountName: torch # Use the pod-reader service account
       containers:
-      - name: tp-orch
-        image: localhost:5000/tp-orch:latest
+      - name: torch
+        image: localhost:5000/torch:latest
         command:
           - /bin/sh
           - -c
         args:
-          - ./tp-orch --config-file /config/config.yaml
+          - ./torch --config-file /config/config.yaml
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -57,8 +57,8 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: tp-orch
-  name: tp-orch
+    app: torch
+  name: torch
   namespace: default
 spec:
   ports:
@@ -66,7 +66,7 @@ spec:
     protocol: TCP
     targetPort: 8080
   selector:
-    app: tp-orch
+    app: torch
   type: ClusterIP
 ---
 apiVersion: v1
@@ -91,13 +91,13 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: tp-orch
+  name: torch
   namespace: default
 ---
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: tp-orch-role
+  name: torch-role
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -112,12 +112,12 @@ rules:
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: tp-orch-rolebinding
+  name: torch-rolebinding
 subjects:
 - kind: ServiceAccount
-  name: tp-orch
+  name: torch
   namespace: default
 roleRef:
   kind: Role
-  name: tp-orch-role
+  name: torch-role
   apiGroup: rbac.authorization.k8s.io

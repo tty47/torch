@@ -6,7 +6,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/jrmanes/tp-orch/config"
+	"github.com/jrmanes/torch/config"
 
 	log "github.com/sirupsen/logrus"
 
