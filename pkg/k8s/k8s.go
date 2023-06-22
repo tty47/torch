@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/jrmanes/mp-orch/config"
@@ -24,10 +23,7 @@ type NodeAddress struct {
 	NodeName string
 }
 
-var (
-	nodeIDsMap      map[string]string
-	trustedPeerFile = "/tmp/TP-ADDR"
-)
+var nodeIDsMap map[string]string
 
 // GetCurrentNamespace gets the current namespace from the environment variable.
 // If the variable is not defined, the default value "default" is used.
@@ -39,6 +35,36 @@ func GetCurrentNamespace() string {
 		return "default"
 	}
 	return currentNamespace
+}
+
+// StoreNodeIDs stores the nodeName-address pair in the map
+func StoreNodeIDs(nodeName, id string) {
+	// check if the nodeIDsMap has been initialized
+	if nodeIDsMap == nil {
+		nodeIDsMap = make(map[string]string)
+	}
+	nodeIDsMap[nodeName] = id
+}
+
+// GetAllIDs returns the nodeIDsMap
+func GetAllIDs() map[string]string {
+	return nodeIDsMap
+}
+
+// validateNode checks if an input node is available in the config.
+func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string) {
+	// check if the node received by the request is on the list, if so, we
+	// continue the process
+	for _, mutualPeer := range cfg.MutualPeers {
+		for _, peer := range mutualPeer.Peers {
+			if peer.NodeName == n {
+				log.Info("Pod found in the config, executing remote command...")
+				return true, peer.NodeName, peer.ContainerName
+			}
+		}
+	}
+
+	return false, "", ""
 }
 
 // GenerateList generates a list of matching pods based on the configured NodeName values.
@@ -83,66 +109,6 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 	return matchingPods
 }
 
-// GetTrustedPeerCommand generates the command for retrieving trusted peer information.
-func GetTrustedPeerCommand() []string {
-	script := fmt.Sprintf(`#!/bin/sh
-# add the prefix to the addr
-if [ -f "%[1]s" ];then
-  cat "%[1]s"
-fi`, trustedPeerFile)
-
-	return []string{"sh", "-c", script}
-}
-
-// CreateTrustedPeerCommand generates the command for creating trusted peers.
-// we have to use the shell script because we can only get the token and the
-// nodeID from the node itself
-func CreateTrustedPeerCommand() []string {
-	trusteedPeerPrefix := "/dns/$(hostname)/tcp/2121/p2p/"
-
-	script := fmt.Sprintf(`#!/bin/sh
-if [ -f "%[1]s" ];then
-  cat "%[1]s"
-else
- # add the prefix to the addr
-  echo -n "%[2]s" > "%[1]s"
-
-  # generate the token
-  export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
-
-  # remove the first warning line...
-  export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
-
-  # make the request and parse the response
-  TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-       --header="Content-Type: application/json" \
-       --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-       --output-document - \
-       http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
-  
-  echo -n "${TP_ADDR}" >> "%[1]s"
-  cat "%[1]s"
-fi`, trustedPeerFile, trusteedPeerPrefix)
-
-	return []string{"sh", "-c", script}
-}
-
-// validateNode checks if an input node is available in the config.
-func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string) {
-	// check if the node received by the request is on the list, if so, we
-	// continue the process
-	for _, mutualPeer := range cfg.MutualPeers {
-		for _, peer := range mutualPeer.Peers {
-			if peer.NodeName == n {
-				log.Info("Pod found in the config, executing remote command...")
-				return true, peer.NodeName, peer.ContainerName
-			}
-		}
-	}
-
-	return false, "", ""
-}
-
 // GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string, error) {
 	// get the command
@@ -170,42 +136,78 @@ func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string,
 	return output, nil
 }
 
-// Function to store the nodeName-address pair in the map
-func StoreNodeIDs(nodeName, id string) {
-	if nodeIDsMap == nil {
-		nodeIDsMap = make(map[string]string)
-	}
-	nodeIDsMap[nodeName] = id
-}
-
-// GetAllIDs returns the nodeIDsMap
-func GetAllIDs() map[string]string {
-	return nodeIDsMap
-}
-
 // GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
 	// get the command
 	command := CreateTrustedPeerCommand()
 
+	// Create a map to store the pod names
+	podMap := make(map[string]bool)
+
+	// Add the pod names to the map
+	for _, p := range pod {
+		podMap[p] = true
+	}
+
+	// generate the storenodesids
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
-			log.Info("Generating config for node:", peer.NodeName)
-
-			output, err := RunRemoteCommand(
-				peer.NodeName,
-				peer.ContainerName,
-				GetCurrentNamespace(),
-				command)
-			if err != nil {
-				log.Error("Error executing remote command: ", err)
-				return nodeIDsMap, err
+			// Check if the peer's NodeName is present in the podMap
+			if _, exists := podMap[peer.NodeName]; exists {
+				log.Info("Generating config for node:", peer.NodeName)
+				output, err := RunRemoteCommand(
+					peer.NodeName,
+					peer.ContainerName,
+					GetCurrentNamespace(),
+					command)
+				if err != nil {
+					log.Error("Error executing remote command: ", err)
+					return nodeIDsMap, err
+				}
+				StoreNodeIDs(peer.NodeName, output)
 			}
-			StoreNodeIDs(peer.NodeName, output)
+		}
+	}
+
+	// bulk the data
+	for _, mutualPeer := range cfg.MutualPeers {
+		for _, peer := range mutualPeer.Peers {
+			// Check if the peer's NodeName is present in the podMap
+			if _, exists := podMap[peer.NodeName]; exists {
+				log.Info("Generating config for node:", peer.NodeName)
+				BulkTrustePeers(cfg, *mutualPeer)
+				break // Skip to the next mutualPeer
+			}
 		}
 	}
 
 	return nodeIDsMap, nil
+}
+
+func BulkTrustePeers(cfg config.MutualPeersConfig, pods config.MutualPeer) {
+	// Get the data from the map
+	data := GetAllIDs()
+
+	// Loop through the peers in the config and check if they have the TP-ADDR file
+	for key := range data {
+		log.Info("Data key: ", key)
+		for index, pod := range pods.Peers {
+			log.Info("INDEX: ", index)
+			if key != pod.NodeName {
+				log.Info("this is a different one: ", data[key], " ", pod.NodeName)
+				command := BulkTrustedPeerCommand(data[key])
+				output, err := RunRemoteCommand(
+					pod.NodeName,
+					pod.ContainerName,
+					GetCurrentNamespace(),
+					command)
+				if err != nil {
+					log.Error("Error executing remote command: ", err)
+				}
+				log.Info("OUTPUT: ", output)
+			}
+		}
+	}
 }
 
 // RunRemoteCommand executes a remote command on the specified node.

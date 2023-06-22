@@ -3,6 +3,7 @@ module github.com/jrmanes/mp-orch
 go 1.20
 
 require (
+	github.com/google/martian v2.1.0+incompatible
 	github.com/gorilla/mux v1.8.0
 	github.com/sirupsen/logrus v1.9.3
 	gopkg.in/yaml.v2 v2.4.0
