@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: default
 
 resources:
-- ../base
+- ../../base
 
 images:
   - name: github.com/jrmanes/torch
