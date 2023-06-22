@@ -18,27 +18,14 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-type RequestBody struct {
-	// Body response response body.
-	Body string `json:"podName"`
-}
-
-// Response represents the response structure.
-type Response struct {
-	// Status HTTP code of the response.
-	Status int `json:"status"`
-	// Body response response body.
-	Body interface{} `json:"body"`
-	// Errors that occurred during the request, if any.
-	Errors interface{} `json:"errors,omitempty"`
-}
-
 type NodeAddress struct {
 	NodeName string
 	ID       string
 }
 
 var nodeIDsMap map[string]string
+
+var trustedPeerFile = "/tmp/TP-ADDR"
 
 // GetCurrentNamespace gets the current namespace from the environment variable.
 // If the variable is not defined, the default value "default" is used.
@@ -83,7 +70,6 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 		for _, mutualPeer := range cfg.MutualPeers {
 			for _, peer := range mutualPeer.Peers {
 				if podName == peer.NodeName {
-					// Match found
 					log.Info("Pod matches the name: ", pod.Name, " ", peer.NodeName)
 					matchingPods = append(matchingPods, podName)
 				}
@@ -99,10 +85,9 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 func GetTrustedPeerCommand() []string {
 	script := fmt.Sprintf(`#!/bin/sh
 # add the prefix to the addr
-if [ -f /tmp/TP-ADDR ];then
-  cat /tmp/TP-ADDR
-fi
-`)
+if [ -f "%[1]s" ];then
+  cat "%[1]s"
+fi`, trustedPeerFile)
 
 	return []string{"sh", "-c", script}
 }
@@ -112,25 +97,28 @@ func CreateTrustedPeerCommand() []string {
 	trusteedPeerPrefix := "/dns/$(hostname)/tcp/2121/p2p/"
 
 	script := fmt.Sprintf(`#!/bin/sh
-# add the prefix to the addr
-echo -n "%s" > /tmp/TP-ADDR
+if [ -f "%[1]s" ];then
+  cat "%[1]s"
+else
+ # add the prefix to the addr
+  echo -n "%[2]s" > "%[1]s"
 
-# generate the token
-export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
+  # generate the token
+  export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
 
-# remove the first warning line...
-export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
+  # remove the first warning line...
+  export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
 
-# make the request and parse the response
-TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-     --header="Content-Type: application/json" \
-     --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-     --output-document - \
-     http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
-
-echo -n "${TP_ADDR}" >> /tmp/TP-ADDR
-cat /tmp/TP-ADDR
-`, trusteedPeerPrefix)
+  # make the request and parse the response
+  TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
+       --header="Content-Type: application/json" \
+       --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
+       --output-document - \
+       http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
+  
+  echo -n "${TP_ADDR}" >> "%[1]s"
+  cat "%[1]s"
+fi`, trustedPeerFile, trusteedPeerPrefix)
 
 	return []string{"sh", "-c", script}
 }

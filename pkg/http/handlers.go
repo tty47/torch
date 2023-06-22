@@ -99,7 +99,7 @@ func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) 
 	}
 }
 
-// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
+// Gen handles the HTTP POST request to create the files with their ids
 func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	var body RequestBody
 	var resp Response
@@ -129,6 +129,9 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 		ReturnResponse(resp, w, r)
 	}
 
+	// print the output -> should be the nodeId
+	log.Info(output)
+
 	nodeId := make(map[string]string)
 	nodeId[pod] = output
 
@@ -140,7 +143,7 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	ReturnResponse(resp, w, r)
 }
 
-// List handles the HTTP GET request for retrieving the list of matching pods as JSON.
+// GenAll generate the list of ids for all the nodes availabe in the config
 func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	var body RequestMultipleNodesBody
 	var resp Response
@@ -162,6 +165,7 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 	nodeIDs, err := k8s.GenerateAllTrustedPeersAddr(cfg, pod)
 	if err != nil {
 		log.Error("Error: ", err)
+		// resp -> generate the response with the error
 		resp := Response{
 			Status: http.StatusInternalServerError,
 			Body:   pod,
@@ -173,13 +177,12 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 	// remove if the ids is empty
 	for nodeName, id := range nodeIDs {
 		if id == "" {
-			//log.Info("Node Name:", nodeName)
-			//log.Info("IDs:", id)
-			//log.Info("---------------------")
+			// if the id is empty, we remove it from the map
 			delete(nodeIDs, nodeName)
 		}
 	}
 
+	// resp -> generate the response
 	resp = Response{
 		Status: http.StatusOK,
 		Body:   nodeIDs,
@@ -188,6 +191,7 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 	ReturnResponse(resp, w, r)
 }
 
+// ReturnResponse assert function to write the reponse
 func ReturnResponse(resp Response, w http.ResponseWriter, r *http.Request) {
 	jsonData, err := json.Marshal(resp)
 	if err != nil {
@@ -196,6 +200,7 @@ func ReturnResponse(resp Response, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write all the headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write(jsonData)
