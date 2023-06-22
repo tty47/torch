@@ -18,7 +18,8 @@ spec:
       serviceAccountName: torch # Use the pod-reader service account
       containers:
       - name: torch
-        image: localhost:5000/torch:latest
+        #image: localhost:5000/torch:latest
+        image: github.com/jrmanes/torch:latest
         command:
           - /bin/sh
           - -c

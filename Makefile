@@ -26,7 +26,7 @@ build:
 	go build -o ./bin/${PROJECT_NAME} ./cmd/main.go
 
 test:
-	go test ./... -v -cover .
+	go test ./... -v .
 
 test_cover:
 	go test ./... -v -coverprofile cover.out
@@ -38,13 +38,8 @@ get:
 docs:
 	godoc -http=:6060
 
-golangci:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
-	golangci-lint run ./... --verbose --no-config --out-format checkstyle > golangci-lint.out || true
-
 # Docker
 docker_build:
-	GOOS=linux go build -o ./torch ./cmd/main.go
 	docker build -f Dockerfile -t ${PROJECT_NAME} -t ${PROJECT_NAME}:latest .
 
 docker_build_local_push:
@@ -60,4 +55,4 @@ kubectl_apply:
 	kubectl delete -f ./deployment.yaml ;\
 	kubectl apply -f ./deployment.yaml
 
-kubectl_deploy: docker_build_local_push kubectl_apply
+kubectl_deploy: docker_build kubectl_apply

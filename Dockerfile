@@ -3,13 +3,10 @@ WORKDIR /
 COPY go.mod go.sum ./
 # Download dependencies
 RUN go mod download
-#COPY . .
-#COPY main.go .
+COPY . .
+COPY cmd/main.go ./cmd
 
-COPY torch /go/bin/
-RUN ls -ltar /go/bin/
-
-#RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.gitCommit=$(git rev-list -1 HEAD)" -o /go/bin/main ./main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.gitCommit=$(git rev-list -1 HEAD)" -o /go/bin/main ./cmd/main.go
 #RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/torch ./main.go
 
 FROM alpine:latest
