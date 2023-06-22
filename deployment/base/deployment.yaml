@@ -19,7 +19,7 @@ spec:
       containers:
       - name: torch
         #image: localhost:5000/torch:latest
-        image: github.com/jrmanes/torch:latest
+        image: ghcr.io/jrmanes/torch:latest
         command:
           - /bin/sh
           - -c
