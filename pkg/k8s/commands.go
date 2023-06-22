@@ -5,8 +5,9 @@ import (
 )
 
 var (
-	trustedPeerFile    = "/tmp/TP-ADDR"
-	trustedPeers       = "/home/celestia/config/"
+	trustedPeerFile = "/tmp/TP-ADDR"
+	//trustedPeers       = "/home/celestia/config/"
+	trustedPeers       = "/tmp/"
 	trusteedPeerPrefix = "/dns/$(hostname)/tcp/2121/p2p/"
 )
 
@@ -55,7 +56,7 @@ fi`, trustedPeerFile, trusteedPeerPrefix)
 // BulkTrustedPeerCommand generates the peers content in the files
 func BulkTrustedPeerCommand(tp string) []string {
 	script := fmt.Sprintf(`#!/bin/sh
-# create the folder if doesnt exists
+# create the folder if doesnt exists
 mkdir -p "%[3]s"
 
 if [ ! -f "%[3]s" ];then
