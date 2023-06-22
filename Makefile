@@ -1,18 +1,5 @@
-# Conntrack Exporter service
-SERVICE_NAME=torch
 PROJECT_NAME=torch
 REPOSITORY_NAME=torch
-NAMESPACE_NAME=torch
-
-#### #### #### #### #### #### ####
-# Load .env in order to use vars
-ifneq (,$(wildcard ./.env))
-    include .env
-    export
-endif
-#### #### #### #### #### #### ####
-
-#### #### #### #### #### #### ####
 
 # Go
 .PHYONY: run build test test_cover get docs
