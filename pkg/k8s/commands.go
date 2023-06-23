@@ -9,7 +9,8 @@ import (
 var (
 	trustedPeerFile   = "/tmp/TP-ADDR"
 	trustedPeers      = "/tmp/"
-	trustedPeerPrefix = "/ip4/$(ip_addr=$(ifconfig | grep -oE 'inet addr:([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}'))/tcp/2121/p2p/"
+	cmd               = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
+	trustedPeerPrefix = "/ip4/" + cmd + "/tcp/2121/p2p/"
 )
 
 func GetTrustedPeersPath(cfg config.MutualPeer) string {
