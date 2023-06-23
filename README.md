@@ -4,7 +4,7 @@
 
 Torch is the **Trusted Peers Orchestrator**.
 
-Torch access to the nodes defined in the config file and get's their multiaddress, then it write it to the specified path and shares the info with all the other peers defined.
+Torch access to the nodes defined in the config file and get's their multiaddress, then, it writes it to the specified path and shares the info with all the other peers defined.
 
 ---
 
