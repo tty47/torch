@@ -193,7 +193,8 @@ func BulkTrustedPeers(cfg config.MutualPeersConfig, pods config.MutualPeer) {
 		for _, pod := range pods.Peers {
 			if key != pod.NodeName {
 				log.Info("this is a different one: ", data[key], " ", pod.NodeName)
-				command := BulkTrustedPeerCommand(data[key])
+				// send the data + the config to generate the path
+				command := BulkTrustedPeerCommand(data[key], pods)
 				output, err := RunRemoteCommand(
 					pod.NodeName,
 					pod.ContainerName,

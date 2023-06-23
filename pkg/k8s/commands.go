@@ -2,14 +2,24 @@ package k8s
 
 import (
 	"fmt"
+
+	"github.com/jrmanes/torch/config"
 )
 
 var (
-	trustedPeerFile = "/tmp/TP-ADDR"
-	//trustedPeers       = "/home/celestia/config/"
+	trustedPeerFile    = "/tmp/TP-ADDR"
 	trustedPeers       = "/tmp/"
 	trusteedPeerPrefix = "/dns/$(hostname)/tcp/2121/p2p/"
 )
+
+func GetTrustedPeersPath(cfg config.MutualPeer) string {
+	// if not defined in the config, return the default value
+	if cfg.TrustedPeersPath == "" {
+		return trustedPeers
+	}
+
+	return cfg.TrustedPeersPath
+}
 
 // GetTrustedPeerCommand generates the command for retrieving trusted peer information.
 func GetTrustedPeerCommand() []string {
@@ -54,7 +64,10 @@ fi`, trustedPeerFile, trusteedPeerPrefix)
 }
 
 // BulkTrustedPeerCommand generates the peers content in the files
-func BulkTrustedPeerCommand(tp string) []string {
+func BulkTrustedPeerCommand(tp string, cfg config.MutualPeer) []string {
+	// Get the path to write
+	trustedPeers = GetTrustedPeersPath(cfg)
+
 	script := fmt.Sprintf(`#!/bin/sh
 # create the folder if doesnt exists
 mkdir -p "%[3]s"

@@ -9,7 +9,8 @@ type MutualPeersConfig struct {
 // MutualPeer represents a mutual peer structure.
 type MutualPeer struct {
 	// List of peers.
-	Peers []Peer `yaml:"peers"`
+	Peers            []Peer `yaml:"peers"`
+	TrustedPeersPath string `yaml:"trustedPeersPath"` // New field
 }
 
 // Peer represents a peer structure.
