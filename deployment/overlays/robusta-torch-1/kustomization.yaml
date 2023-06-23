@@ -8,7 +8,7 @@ resources:
 
 images:
   - name: ghcr.io/jrmanes/torch
-    newTag: 8ca7289
+    newTag: aa51c18
 
 configMapGenerator:
 - name: config
