@@ -50,13 +50,22 @@ else
   export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
 
   # make the request and parse the response
+  # TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
+  #      --header="Content-Type: application/json" \
+  #      --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
+  #      --output-document - \
+  #      http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
   TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-       --header="Content-Type: application/json" \
-       --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-       --output-document - \
-       http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
-  
-  echo -n "${TP_ADDR}" >> "%[1]s"
+      --header="Content-Type: application/json" \
+      --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
+      --output-document - \
+      http://localhost:26658 > /tmp/tmp-id)
+ 
+Addr=$(echo $(cat /tmp/tmp-id) | jq -r '.result.Addrs[0]')
+ID=$(echo $(cat /tmp/tmp-id) | jq -r '.result.ID')
+output="$Addr/$ID"
+
+  echo -n "${output}" >> "%[1]s"
   cat "%[1]s"
 fi`, trustedPeerFile, trusteedPeerPrefix)
 
