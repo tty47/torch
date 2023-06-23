@@ -92,13 +92,13 @@ mutualPeers:
       containerName: "da"
     - nodeName: "da-full-1"
       containerName: "da"
-    trustedPeersPath: "/home/celestia/config"
+    trustedPeersPath: "/tmp"
   - peers:
     - nodeName: "da-bridge-2"
       containerName: "da"
     - nodeName: "da-full-2"
       containerName: "da"
-    trustedPeersPath: "/home/celestia/config"
+    trustedPeersPath: "/tmp"
 ```
 
 ![Torch Flow](./docs/assets/torch.png)
