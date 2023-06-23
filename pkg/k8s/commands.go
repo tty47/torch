@@ -61,9 +61,9 @@ else
       --output-document - \
       http://localhost:26658 > /tmp/tmp-id)
  
-Addr=$(echo $(cat /tmp/tmp-id) | jq -r '.result.Addrs[0]')
+ADDR=$(echo $(cat /tmp/tmp-id) |  grep -o '"Addrs":\s*\["[^"]*"' tmp-id | sed 's/"Addrs":\s*\["\([^"]*\)".*/\1/')
 ID=$(echo $(cat /tmp/tmp-id) | jq -r '.result.ID')
-output="$Addr/$ID"
+output="$ADDR/$ID"
 
   echo -n "${output}" >> "%[1]s"
   cat "%[1]s"
