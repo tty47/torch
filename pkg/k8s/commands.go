@@ -9,7 +9,7 @@ import (
 var (
 	trustedPeerFile    = "/tmp/TP-ADDR"
 	trustedPeers       = "/tmp/"
-	trusteedPeerPrefix = "/dns/$(hostname)/tcp/2121/p2p/"
+	trusteedPeerPrefix = "/ip4/$(ip_addr=$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}'))/tcp/2121/p2p/"
 )
 
 func GetTrustedPeersPath(cfg config.MutualPeer) string {
@@ -50,22 +50,13 @@ else
   export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
 
   # make the request and parse the response
-  # TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-  #      --header="Content-Type: application/json" \
-  #      --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-  #      --output-document - \
-  #      http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
   TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-      --header="Content-Type: application/json" \
-      --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-      --output-document - \
-      http://localhost:26658 > /tmp/tmp-id)
- 
-ADDR=$(echo $(cat /tmp/tmp-id) |  grep -o '"Addrs":\s*\["[^"]*"' tmp-id | sed 's/"Addrs":\s*\["\([^"]*\)".*/\1/')
-ID=$(echo $(cat /tmp/tmp-id) | jq -r '.result.ID')
-output="$ADDR/$ID"
-
-  echo -n "${output}" >> "%[1]s"
+       --header="Content-Type: application/json" \
+       --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
+       --output-document - \
+       http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
+  
+  echo -n "${TP_ADDR}" >> "%[1]s"
   cat "%[1]s"
 fi`, trustedPeerFile, trusteedPeerPrefix)
 
