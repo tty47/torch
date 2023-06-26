@@ -18,8 +18,7 @@ spec:
       serviceAccountName: torch
       containers:
       - name: torch
-        #image: localhost:5000/torch:latest
-        image: ghcr.io/jrmanes/torch:latest
+        image: ghcr.io/celestiaorg/torch:SET-IT
         command:
           - /bin/sh
           - -c
