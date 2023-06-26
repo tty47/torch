@@ -4,9 +4,9 @@
 
 Torch is the **Trusted Peers Orchestrator**.
 
-This service was created with the idea to manage [Celestia Nodes](https://github.com/celestiaorg/celestia-node/).
+This service was created with the idea to manage [Celestia Nodes](https://github.com/celestiaorg/celestia-node/) automatically.
 
-By default, when you run some Bridge Nodes and Full Nodes, you have to specify in the Full Node the Bridge's multiaddress, this services does it automatically for you.
+By default, when you run some Bridge Nodes and Full Nodes, you have to specify in the Full Node the Bridge's multiaddress, this service does it automatically for you.
 
 Torch access to the nodes defined in the config file and get's their multiaddress, then, it writes it to the specified path and shares the info with all the other peers defined.
 
