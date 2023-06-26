@@ -1,0 +1,12 @@
+mutualPeers:
+  - peers:
+    - nodeName: "da-bridge-1-0"
+      containerName: "da"
+    - nodeName: "da-full-1-0"
+      containerName: "da"
+  - peers:
+    - nodeName: "da-bridge-2-0"
+      containerName: "da"
+    - nodeName: "da-full-2-0"
+      containerName: "da"
+    trustedPeersPath: "/tmp/celestia-config" # same as: SETUP_PATH
