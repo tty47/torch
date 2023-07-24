@@ -1,0 +1,7 @@
+mutualPeers:
+  - peers:
+    - nodeName: "da-bridge-1-0"
+      containerName: "da"
+    - nodeName: "da-full-1-0"
+      containerName: "da"
+    trustedPeersPath: "/home/celestia/config"
