@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/jrmanes/torch/config"
@@ -41,7 +42,21 @@ func ParseFlags() config.MutualPeersConfig {
 	return cfg
 }
 
+func PrintName() {
+	torch := `
+================================ 
+  __________  ____  ________  __
+ /_  __/ __ \/ __ \/ ____/ / / /
+  / / / / / / /_/ / /   / /_/ / 
+ / / / /_/ / _, _/ /___/ __  /  
+/_/  \____/_/ |_|\____/_/ /_/
+================================
+`
+	fmt.Println(torch)
+}
+
 func main() {
+	PrintName()
 	// Parse the command-line flags and read the configuration file
 	log.Info("Running on namespace: ", k8s.GetCurrentNamespace())
 	cfg = ParseFlags()
