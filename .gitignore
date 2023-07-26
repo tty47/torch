@@ -1,3 +1,6 @@
 torch
-*otel-agent-celestia.yaml
+
+.DS_Store
 .idea
+
+*otel-agent-celestia.yaml
