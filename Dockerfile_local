@@ -8,4 +8,4 @@ COPY torch /go/bin/torch
 FROM alpine:latest
 WORKDIR /
 COPY --from=builder /go/bin/torch .
-ENTRYPOINT ["./watchdog"]
+ENTRYPOINT ["./torch"]

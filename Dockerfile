@@ -4,7 +4,7 @@ COPY go.mod go.sum ./
 # Download dependencies
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/torch ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /go/bin/torch ./cmd/main.go
 
 FROM alpine:latest
 WORKDIR /
