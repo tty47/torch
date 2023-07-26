@@ -1,2 +1,3 @@
 torch
-*otel-agent-celestia.yaml.idea
+*otel-agent-celestia.yaml
+.idea
