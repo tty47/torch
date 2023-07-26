@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"github.com/jrmanes/torch/pkg/k8s"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
 
 	"github.com/gorilla/mux"
