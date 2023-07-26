@@ -13,6 +13,7 @@ var (
 	trustedPeerPrefix = "/ip4/" + cmd + "/tcp/2121/p2p/"
 )
 
+// GetTrustedPeersPath get the peers path from config or return the default value
 func GetTrustedPeersPath(cfg config.MutualPeer) string {
 	// if not defined in the config, return the default value
 	if cfg.TrustedPeersPath == "" {

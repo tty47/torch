@@ -5,17 +5,41 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/k8s"
+	"github.com/jrmanes/torch/pkg/metrics"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
+// GetHttpPort GetPort retrieves the namespace where the service will be deployed
+func GetHttpPort() string {
+	port := os.Getenv("HTTP_PORT")
+	if port == "" {
+		log.Info("Using the default port: 8080")
+		return "8080"
+	}
+
+	// Ensure that the provided port is a valid numeric value
+	_, err := strconv.Atoi(port)
+	if err != nil {
+		log.Error("Invalid HTTP_PORT value: %v. Using default port 8080")
+		return "8080"
+	}
+
+	return port
+}
+
+// Run initializes the HTTP server, registers metrics for all nodes in the configuration,
+// and starts the server.
 func Run(cfg config.MutualPeersConfig) {
-	httpPort := "8080"
+	// Get http port
+	httpPort := GetHttpPort()
 
 	// Set up the HTTP server
 	r := mux.NewRouter()
@@ -24,6 +48,20 @@ func Run(cfg config.MutualPeersConfig) {
 	// Use the middleware
 	r.Use(LogRequest)
 
+	// Initialize the config and register the metrics for all nodes
+	err := metrics.InitConfig()
+	if err != nil {
+		log.Errorf("Error initializing metrics: %v", err)
+		return
+	}
+
+	// Register Metrics - Initialize them
+	err = RegisterMetrics(cfg)
+	if err != nil {
+		log.Errorf("Error registering metrics: %v", err)
+		return
+	}
+
 	// Create the server
 	server := &http.Server{
 		Addr:    ":" + httpPort,
@@ -31,11 +69,11 @@ func Run(cfg config.MutualPeersConfig) {
 	}
 
 	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("Listening on: ", err)
+			log.Errorf("Listening on: %v", err)
 		}
 	}()
 	log.Info("Server Started...")
@@ -50,7 +88,30 @@ func Run(cfg config.MutualPeersConfig) {
 	}()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Error("Server Shutdown Failed: ", err)
+		log.Errorf("Server Shutdown Failed: %v", err)
 	}
 	log.Info("Server Exited Properly")
+}
+
+// RegisterMetrics generates and registers the metrics for all nodes in the configuration.
+func RegisterMetrics(cfg config.MutualPeersConfig) error {
+	log.Info("Generating initial metrics for all the nodes...")
+
+	var nodeNames []string
+
+	// Adding nodes from config to register the initial metrics
+	for _, n := range cfg.MutualPeers {
+		for _, no := range n.Peers {
+			nodeNames = append(nodeNames, no.NodeName)
+		}
+	}
+
+	// Generate the metrics for all nodes
+	_, err := k8s.GenerateAllTrustedPeersAddr(cfg, nodeNames)
+	if err != nil {
+		log.Errorf("Error GenerateAllTrustedPeersAddr: %v", err)
+		return err
+	}
+
+	return nil
 }

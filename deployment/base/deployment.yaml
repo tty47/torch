@@ -25,10 +25,12 @@ spec:
         args:
           - ./torch --config-file /config/config.yaml
         env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+          - name: HTTP_PORT
+            value: "8080"
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -42,6 +44,26 @@ spec:
           limits:
             memory: "100Mi"
             cpu: "100m"
+      - name: otel-agent
+        image: otel/opentelemetry-collector-contrib:SET-IT
+        command:
+          - '/otelcol-contrib'
+          - '--config=/conf/otel-agent.yaml'
+        volumeMounts:
+          - name: otel-agent
+            mountPath: "/conf/otel-agent.yaml"
+            subPath: otel-agent-celestia.yaml
+        ports:
+          - name: prometheus-otel
+            containerPort: 8888
+          - name: prometheus
+            containerPort: 9090
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            memory: 200Mi
       volumes:
       - name: config
         configMap:
@@ -49,3 +71,6 @@ spec:
           items:
           - key: config.yaml
             path: config.yaml
+      - name: otel-agent
+        configMap:
+          name: otel-agent

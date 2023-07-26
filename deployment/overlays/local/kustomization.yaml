@@ -8,9 +8,15 @@ resources:
 
 images:
   - name: ghcr.io/jrmanes/torch
-    newTag: v0.0.1
+    newTag: latest
+  - name: otel/opentelemetry-collector-contrib
+    newTag: 0.71.0
 
 configMapGenerator:
 - name: config
   files:
   - ./config/config.yaml
+- name: otel-agent
+  files:
+  #- ./config/otel-agent.yaml
+  - ./config/otel-agent-celestia.yaml

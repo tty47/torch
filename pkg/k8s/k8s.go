@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 
 	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 
@@ -72,14 +74,14 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 	// matchingPods Stores the matching pods.
 	var matchingPods []string
 
-	config, err := rest.InClusterConfig()
+	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Error %v", err)
 	}
 	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Error %v", err)
 	}
 
 	log.Info("Namespace: ", GetCurrentNamespace())
@@ -133,6 +135,16 @@ func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string,
 		return "", err
 	}
 
+	// Registering metric
+	m := metrics.MultiAddrs{
+		ServiceName: "torch",
+		NodeName:    pod,
+		MultiAddr:   output,
+		Namespace:   GetCurrentNamespace(),
+		Value:       1,
+	}
+	RegisterMetric(m)
+
 	return output, nil
 }
 
@@ -149,25 +161,42 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 		podMap[p] = true
 	}
 
-	// generate the storenodesids
+	var wg sync.WaitGroup
+
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
-			// Check if the peer's NodeName is present in the podMap
 			if _, exists := podMap[peer.NodeName]; exists {
-				log.Info("Generating config for node:", peer.NodeName)
-				output, err := RunRemoteCommand(
-					peer.NodeName,
-					peer.ContainerName,
-					GetCurrentNamespace(),
-					command)
-				if err != nil {
-					log.Error("Error executing remote command: ", err)
-					return nodeIDsMap, err
-				}
-				StoreNodeIDs(peer.NodeName, output)
+				wg.Add(1)
+				go func(peer config.Peer) {
+					defer wg.Done()
+
+					output, err := RunRemoteCommand(
+						peer.NodeName,
+						peer.ContainerName,
+						GetCurrentNamespace(),
+						command)
+					if err != nil {
+						log.Error("Error executing remote command: ", err)
+						// Handle the error or add it to a shared error channel
+						return
+					}
+
+					StoreNodeIDs(peer.NodeName, output)
+
+					m := metrics.MultiAddrs{
+						ServiceName: "torch",
+						NodeName:    peer.NodeName,
+						MultiAddr:   output,
+						Namespace:   GetCurrentNamespace(),
+						Value:       1,
+					}
+					RegisterMetric(m)
+				}(peer)
 			}
 		}
 	}
+
+	wg.Wait()
 
 	// generate the data on the nodes by calling BulkTrusteedPeers
 	for _, mutualPeer := range cfg.MutualPeers {
@@ -175,7 +204,7 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 			// Check if the peer's NodeName is present in the podMap
 			if _, exists := podMap[peer.NodeName]; exists {
 				log.Info("Generating config for node:", peer.NodeName)
-				BulkTrustedPeers(cfg, *mutualPeer)
+				BulkTrustedPeers(*mutualPeer)
 				break // Skip to the next mutualPeer
 			}
 		}
@@ -184,42 +213,77 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 	return nodeIDsMap, nil
 }
 
-func BulkTrustedPeers(cfg config.MutualPeersConfig, pods config.MutualPeer) {
-	// Get the data from the map
+func BulkTrustedPeers(pods config.MutualPeer) {
+	// Get the data from the map containing trusted peers' addresses
 	data := GetAllIDs()
 
-	// Loop through the peers in the config and check if they have the TP-ADDR file
+	// Create a channel to collect errors from goroutines
+	errCh := make(chan error)
+	// Use a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+
+	// Loop through the trusted peers' addresses in the data map
 	for key := range data {
 		for _, pod := range pods.Peers {
+			// Skip if the current trusted peer's address matches the current pod's NodeName
 			if key != pod.NodeName {
-				log.Info("this is a different one: ", data[key], " ", pod.NodeName)
-				// send the data + the config to generate the path
-				command := BulkTrustedPeerCommand(data[key], pods)
-				output, err := RunRemoteCommand(
-					pod.NodeName,
-					pod.ContainerName,
-					GetCurrentNamespace(),
-					command)
-				if err != nil {
-					log.Error("Error executing remote command: ", err)
-				}
-				log.Info("OUTPUT: ", output)
+				wg.Add(1)
+				// Launch a goroutine to execute the remote command for the current pod
+				go func(peer config.Peer) {
+					defer wg.Done()
+
+					// Generate the command to get trusted peers' addresses for the current pod
+					command := BulkTrustedPeerCommand(data[key], pods)
+
+					// Execute the remote command to get trusted peers' addresses
+					output, err := RunRemoteCommand(
+						peer.NodeName,
+						peer.ContainerName,
+						GetCurrentNamespace(),
+						command)
+					if err != nil {
+						// If an error occurs, send it to the error channel
+						errCh <- err
+						return
+					}
+					log.Info("OUTPUT: ", output)
+
+					// Generate the metrics with the MultiAddrs
+					m := metrics.MultiAddrs{
+						ServiceName: "torch",
+						NodeName:    peer.NodeName,
+						MultiAddr:   output,
+						Namespace:   GetCurrentNamespace(),
+						Value:       1,
+					}
+					RegisterMetric(m)
+				}(pod)
 			}
 		}
+	}
+
+	// Close the error channel after all goroutines finish
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+
+	// Collect errors from the error channel and log them
+	for err := range errCh {
+		log.Error("Error executing remote command: ", err)
 	}
 }
 
 // RunRemoteCommand executes a remote command on the specified node.
 func RunRemoteCommand(nodeName, container, namespace string, command []string) (string, error) {
-	config, err := rest.InClusterConfig()
+	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
 		log.Error("Error: ", err.Error())
 	}
 	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		log.Error("Error: ", err.Error())
-		panic(err.Error())
+		log.Fatalf("Error: %v", err.Error())
 	}
 
 	// Create a request to execute the command on the specified node.
@@ -238,7 +302,7 @@ func RunRemoteCommand(nodeName, container, namespace string, command []string) (
 		}, scheme.ParameterCodec)
 
 	// Execute the remote command.
-	output, err := executeCommand(config, req)
+	output, err := executeCommand(clusterConfig, req)
 	if err != nil {
 		log.Error("failed to execute remote command: ", err)
 	}
