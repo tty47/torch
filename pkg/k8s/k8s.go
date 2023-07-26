@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 
 	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 
@@ -72,14 +74,14 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 	// matchingPods Stores the matching pods.
 	var matchingPods []string
 
-	config, err := rest.InClusterConfig()
+	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Error %v", err)
 	}
 	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		panic(err.Error())
+		log.Fatalf("Error %v", err)
 	}
 
 	log.Info("Namespace: ", GetCurrentNamespace())
@@ -149,25 +151,42 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 		podMap[p] = true
 	}
 
-	// generate the storenodesids
+	var wg sync.WaitGroup
+
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
-			// Check if the peer's NodeName is present in the podMap
 			if _, exists := podMap[peer.NodeName]; exists {
-				log.Info("Generating config for node:", peer.NodeName)
-				output, err := RunRemoteCommand(
-					peer.NodeName,
-					peer.ContainerName,
-					GetCurrentNamespace(),
-					command)
-				if err != nil {
-					log.Error("Error executing remote command: ", err)
-					return nodeIDsMap, err
-				}
-				StoreNodeIDs(peer.NodeName, output)
+				wg.Add(1)
+				go func(peer config.Peer) {
+					defer wg.Done()
+
+					output, err := RunRemoteCommand(
+						peer.NodeName,
+						peer.ContainerName,
+						GetCurrentNamespace(),
+						command)
+					if err != nil {
+						log.Error("Error executing remote command: ", err)
+						// Handle the error or add it to a shared error channel
+						return
+					}
+
+					StoreNodeIDs(peer.NodeName, output)
+
+					m := metrics.MultiAddrs{
+						ServiceName: "torch",
+						NodeName:    peer.NodeName,
+						MultiAddr:   output,
+						Namespace:   GetCurrentNamespace(),
+						Value:       1,
+					}
+					RegisterMetric(m)
+				}(peer)
 			}
 		}
 	}
+
+	wg.Wait()
 
 	// generate the data on the nodes by calling BulkTrusteedPeers
 	for _, mutualPeer := range cfg.MutualPeers {
@@ -204,22 +223,67 @@ func BulkTrustedPeers(cfg config.MutualPeersConfig, pods config.MutualPeer) {
 					log.Error("Error executing remote command: ", err)
 				}
 				log.Info("OUTPUT: ", output)
+
+				//// Generate the metrics with the MultiAddrs
+				//m := metrics.MultiAddrs{
+				//	ServiceName: "torch",
+				//	NodeName:    pod.NodeName,
+				//	MultiAddr:   output,
+				//	Namespace:   GetCurrentNamespace(),
+				//	Value:       1,
+				//}
+				//RegisterMetric(m)
 			}
 		}
 	}
 }
 
+// Declare a slice to hold multiple MultiAddrs metrics.
+var multiAddresses []metrics.MultiAddrs
+
+// MultiAddrExists checks if a given MultiAddr already exists in the multiAddresses slice.
+// It returns true if the MultiAddr already exists, and false otherwise.
+func MultiAddrExists(multiAddr string) bool {
+	for _, addr := range multiAddresses {
+		// Compare each MultiAddr in the slice with the provided multiAddr.
+		if addr.MultiAddr == multiAddr {
+			return true
+		}
+	}
+	return false
+}
+
+// RegisterMetric adds a new MultiAddrs metric to the multiAddresses slice.
+// Before adding, it checks if the MultiAddr already exists in the slice using MultiAddrExists function.
+// If the MultiAddr already exists, it logs a message and skips the addition.
+// Otherwise, it appends the new MultiAddrs to the slice and registers the updated metrics.
+func RegisterMetric(m metrics.MultiAddrs) {
+	// Check if the MultiAddr already exists in the array
+	if MultiAddrExists(m.MultiAddr) {
+		log.Info("MultiAddr already exists in the metrics array: ", m.NodeName, " ", m.MultiAddr)
+		return
+	}
+
+	// Append the new MultiAddr to the array
+	multiAddresses = append(multiAddresses, m)
+
+	// Register the metric
+	err := metrics.WithMetricsMultiAddress(multiAddresses)
+	if err != nil {
+		log.Printf("Failed to update metrics: %v", err)
+	}
+}
+
 // RunRemoteCommand executes a remote command on the specified node.
 func RunRemoteCommand(nodeName, container, namespace string, command []string) (string, error) {
-	config, err := rest.InClusterConfig()
+	clusterConfig, err := rest.InClusterConfig()
 	if err != nil {
 		log.Error("Error: ", err.Error())
 	}
 	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
+	clientset, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		log.Error("Error: ", err.Error())
-		panic(err.Error())
+		log.Fatalf("Error: %v", err.Error())
 	}
 
 	// Create a request to execute the command on the specified node.
@@ -238,7 +302,7 @@ func RunRemoteCommand(nodeName, container, namespace string, command []string) (
 		}, scheme.ParameterCodec)
 
 	// Execute the remote command.
-	output, err := executeCommand(config, req)
+	output, err := executeCommand(clusterConfig, req)
 	if err != nil {
 		log.Error("failed to execute remote command: ", err)
 	}
