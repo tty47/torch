@@ -17,7 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// GetPort retrieves the namespace where the service will be deployed
+// GetHttpPort GetPort retrieves the namespace where the service will be deployed
 func GetHttpPort() string {
 	port := os.Getenv("HTTP_PORT")
 	if port == "" {
@@ -55,6 +55,7 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
+	// Register Metrics - Initialize them
 	err = RegisterMetrics(cfg)
 	if err != nil {
 		log.Errorf("Error registering metrics: %v", err)
