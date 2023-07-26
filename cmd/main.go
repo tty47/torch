@@ -30,14 +30,12 @@ func ParseFlags() config.MutualPeersConfig {
 	file, err := ioutil.ReadFile(*configFile)
 	if err != nil {
 		log.Error("Config file doesn't exist...", err)
-		panic(err)
 	}
 
 	// Unmarshal the YAML into a struct
 	err = yaml.Unmarshal(file, &cfg)
 	if err != nil {
 		log.Error("Cannot unmarshal the config file...", err)
-		panic(err)
 	}
 
 	return cfg
