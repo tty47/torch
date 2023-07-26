@@ -1,5 +1,5 @@
-PROJECT_NAME=torch
-REPOSITORY_NAME=torch
+PROJECT_NAME := $(shell basename `pwd`)
+REPOSITORY_NAME := $(shell basename `pwd`)
 REGISTRY_NAME=ghcr.io/jrmanes
 LOCAL_DEV=local
 
