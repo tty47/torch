@@ -19,5 +19,4 @@ configMapGenerator:
   - ./config/config.yaml
 - name: otel-agent
   files:
-  #- ./config/otel-agent.yaml
-  - ./config/otel-agent-celestia.yaml
+  - ./config/otel-agent.yaml
