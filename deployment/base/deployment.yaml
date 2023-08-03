@@ -19,6 +19,7 @@ spec:
       containers:
       - name: torch
         image: ghcr.io/jrmanes/torch:SET-IT
+        imagePullPolicy: IfNotPresent
         command:
           - /bin/sh
           - -c
@@ -33,6 +34,12 @@ spec:
                 fieldPath: metadata.namespace
         ports:
         - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - all
         volumeMounts:
         - name: config
           mountPath: "/config"
@@ -42,17 +49,29 @@ spec:
             memory: "50Mi"
             cpu: "50m"
           limits:
-            memory: "100Mi"
-            cpu: "100m"
+            memory: "250Mi"
+            cpu: "150m"
       - name: otel-agent
         image: otel/opentelemetry-collector-contrib:SET-IT
+        imagePullPolicy: IfNotPresent
         command:
           - '/otelcol-contrib'
           - '--config=/conf/otel-agent.yaml'
+        env:
+          - name: GRAFANA_OTEL_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: grafana-otel-token
+                key: token
+          - name: GRAFANA_OTEL_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: grafana-otel-token
+                key: username
         volumeMounts:
           - name: otel-agent
             mountPath: "/conf/otel-agent.yaml"
-            subPath: otel-agent-celestia.yaml
+            subPath: otel-agent.yaml
         ports:
           - name: prometheus-otel
             containerPort: 8888
@@ -64,6 +83,13 @@ spec:
             memory: 100Mi
           limits:
             memory: 200Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - all
       volumes:
       - name: config
         configMap:
