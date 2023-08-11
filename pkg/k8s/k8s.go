@@ -3,8 +3,11 @@ package k8s
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"sync"
 
 	"github.com/jrmanes/torch/config"
@@ -272,6 +275,54 @@ func BulkTrustedPeers(pods config.MutualPeer) {
 	for err := range errCh {
 		log.Error("Error executing remote command: ", err)
 	}
+}
+
+// GenesisHash
+func GenesisHash(pods config.MutualPeersConfig) (string, string) {
+	consensusNode := pods.MutualPeers[0].ConsensusNode
+	c := exec.Command("wget", "-q", "-O", "-", fmt.Sprintf("http://%s:26657/block?height=1", consensusNode))
+
+	// Create a buffer to capture the command's output
+	var outputBuffer bytes.Buffer
+	c.Stdout = &outputBuffer
+
+	// Run the command
+	err := c.Run()
+	if err != nil {
+		log.Error("Error:", err)
+		return "", ""
+	}
+
+	// Convert the output buffer to a string
+	outputString := outputBuffer.String()
+
+	// Parse the JSON response into a generic map
+	var response map[string]interface{}
+	err = json.Unmarshal([]byte(outputString), &response)
+	if err != nil {
+		log.Error("Error parsing JSON:", err)
+		return "", ""
+	}
+
+	// Access and print the .block_id.hash field
+	blockIDHash, ok := response["result"].(map[string]interface{})["block_id"].(map[string]interface{})["hash"].(string)
+	if !ok {
+		log.Error("Unable to access .block_id.hash")
+		return "", ""
+	}
+
+	// Access and print the .block.header.time field
+	blockTime, ok := response["result"].(map[string]interface{})["block"].(map[string]interface{})["header"].(map[string]interface{})["time"].(string)
+	if !ok {
+		log.Error("Unable to access .block.header.time")
+		return "", ""
+	}
+
+	log.Info("Block ID Hash: ", blockIDHash)
+	log.Info("Block Time: ", blockTime)
+	log.Info("Full output: ", outputString)
+
+	return blockIDHash, blockTime
 }
 
 // RunRemoteCommand executes a remote command on the specified node.

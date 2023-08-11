@@ -8,6 +8,7 @@ type MutualPeersConfig struct {
 
 // MutualPeer represents a mutual peer structure.
 type MutualPeer struct {
+	ConsensusNode string `yaml:"consensusNode,omitempty"`
 	// List of peers.
 	Peers            []Peer `yaml:"peers"`
 	TrustedPeersPath string `yaml:"trustedPeersPath,omitempty"`
