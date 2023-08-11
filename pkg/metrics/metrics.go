@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -84,6 +86,7 @@ func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespa
 			attribute.String("service_name", serviceName),
 			attribute.String("block_height_1", blockHeight),
 			attribute.String("earliest_block_time", earliestBlockTime),
+			attribute.Int("days_running", CalculateDaysDifference(earliestBlockTime)),
 			attribute.String("namespace", namespace),
 		)
 		// Observe the float64 value for the current block_height_1 with the associated labels.
@@ -95,4 +98,19 @@ func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespa
 	// Register the callback with the meter and the Float64ObservableGauge.
 	_, err = meter.RegisterCallback(callback, blockHeightGauge)
 	return err
+}
+
+func CalculateDaysDifference(inputTimeString string) int {
+	layout := "2006-01-02T15:04:05.999999999Z"
+	inputTime, err := time.Parse(layout, inputTimeString)
+	if err != nil {
+		fmt.Println("Error parsing time:", err)
+		return -1
+	}
+
+	currentTime := time.Now()
+	timeDifference := currentTime.Sub(inputTime)
+	daysDifference := int(timeDifference.Hours() / 24)
+
+	return daysDifference
 }
