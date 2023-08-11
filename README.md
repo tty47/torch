@@ -91,17 +91,17 @@ Here is an example of the flow, using the config:
 
 ```yaml
 mutualPeers:
+  - consensusNode: "consensus-validator-1"
   - peers:
-    - nodeName: "da-bridge-1"
-      containerName: "da"
-    - nodeName: "da-full-1"
-      containerName: "da"
-    trustedPeersPath: "/tmp"
+      - nodeName: "da-bridge-1-0"
+        containerName: "da"
+      - nodeName: "da-full-1-0"
+        containerName: "da"
   - peers:
-    - nodeName: "da-bridge-2"
-      containerName: "da"
-    - nodeName: "da-full-2"
-      containerName: "da"
+      - nodeName: "da-bridge-2-0"
+        containerName: "da"
+      - nodeName: "da-full-2-0"
+        containerName: "da"
     trustedPeersPath: "/tmp"
 ```
 
