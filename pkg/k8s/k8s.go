@@ -302,8 +302,7 @@ func GenesisHash(pods config.MutualPeersConfig) (string, string) {
 	}
 
 	bodyString := string(bodyBytes)
-	fmt.Println("Response Body:")
-	fmt.Println(bodyString)
+	log.Info("Response Body:", bodyString)
 
 	// Parse the JSON response into a generic map
 	var jsonResponse map[string]interface{}
