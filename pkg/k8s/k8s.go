@@ -278,7 +278,7 @@ func BulkTrustedPeers(pods config.MutualPeer) {
 }
 
 // GenesisHash
-func GenesisHash(pods config.MutualPeersConfig) string {
+func GenesisHash(pods config.MutualPeersConfig) (string, string) {
 	consensusNode := pods.MutualPeers[0].ConsensusNode
 	c := exec.Command("wget", "-q", "-O", "-", fmt.Sprintf("http://%s:26657/block?height=1", consensusNode))
 
@@ -290,7 +290,7 @@ func GenesisHash(pods config.MutualPeersConfig) string {
 	err := c.Run()
 	if err != nil {
 		log.Error("Error:", err)
-		return ""
+		return "", ""
 	}
 
 	// Convert the output buffer to a string
@@ -301,20 +301,28 @@ func GenesisHash(pods config.MutualPeersConfig) string {
 	err = json.Unmarshal([]byte(outputString), &response)
 	if err != nil {
 		log.Error("Error parsing JSON:", err)
-		return ""
+		return "", ""
 	}
 
 	// Access and print the .block_id.hash field
 	blockIDHash, ok := response["result"].(map[string]interface{})["block_id"].(map[string]interface{})["hash"].(string)
 	if !ok {
 		log.Error("Unable to access .block_id.hash")
-		return ""
+		return "", ""
 	}
 
-	fmt.Println("Block ID Hash:", blockIDHash)
-	fmt.Println("outputString:", outputString)
+	// Access and print the .block.header.time field
+	blockTime, ok := response["result"].(map[string]interface{})["block"].(map[string]interface{})["header"].(map[string]interface{})["time"].(string)
+	if !ok {
+		log.Error("Unable to access .block.header.time")
+		return "", ""
+	}
 
-	return blockIDHash
+	log.Info("Block ID Hash: ", blockIDHash)
+	log.Info("Block Time: ", blockTime)
+	log.Info("Full output: ", outputString)
+
+	return blockIDHash, blockTime
 }
 
 // RunRemoteCommand executes a remote command on the specified node.

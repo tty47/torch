@@ -66,7 +66,7 @@ type BlockHeight struct {
 
 // WithMetricsBlockHeight creates a callback function to observe metrics for block_height_1.
 // consensus-node:26657/block?height=1
-func WithMetricsBlockHeight(blockHeight, serviceName, namespace string) error {
+func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespace string) error {
 	log.Info("registering metric: ", blockHeight)
 	// Create a Float64ObservableGauge named "block_height_1" with a description for the metric.
 	blockHeightGauge, err := meter.Float64ObservableGauge(
@@ -83,6 +83,7 @@ func WithMetricsBlockHeight(blockHeight, serviceName, namespace string) error {
 		labels := metric.WithAttributes(
 			attribute.String("service_name", serviceName),
 			attribute.String("block_height_1", blockHeight),
+			attribute.String("earliest_block_time", earliestBlockTime),
 			attribute.String("namespace", namespace),
 		)
 		// Observe the float64 value for the current block_height_1 with the associated labels.
