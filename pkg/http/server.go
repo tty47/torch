@@ -62,6 +62,18 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
+	// Get the genesisHash
+	blockHash := k8s.GenesisHash(cfg)
+	err = metrics.WithMetricsBlockHeight(
+		blockHash,
+		cfg.MutualPeers[0].ConsensusNode,
+		os.Getenv("POD_NAMESPACE"),
+	)
+	if err != nil {
+		log.Errorf("Error registering metric block_height_1: %v", err)
+		return
+	}
+
 	// Create the server
 	server := &http.Server{
 		Addr:    ":" + httpPort,
