@@ -19,7 +19,7 @@ spec:
       containers:
       - name: torch
         image: ghcr.io/jrmanes/torch:SET-IT
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
           - /bin/sh
           - -c
