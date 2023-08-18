@@ -1,4 +1,5 @@
 mutualPeers:
+  - consensusNode: "consensus-validator-1"
   - peers:
     - nodeName: "da-bridge-1-0"
       containerName: "da"

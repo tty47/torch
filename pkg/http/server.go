@@ -62,6 +62,22 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
+	// Get the genesisHash
+	// check if the config has the consensusNode field defined
+	if cfg.MutualPeers[0].ConsensusNode != "" {
+		blockHash, earliestBlockTime := k8s.GenesisHash(cfg)
+		err = metrics.WithMetricsBlockHeight(
+			blockHash,
+			earliestBlockTime,
+			cfg.MutualPeers[0].ConsensusNode,
+			os.Getenv("POD_NAMESPACE"),
+		)
+		if err != nil {
+			log.Errorf("Error registering metric block_height_1: %v", err)
+			return
+		}
+	}
+
 	// Create the server
 	server := &http.Server{
 		Addr:    ":" + httpPort,
