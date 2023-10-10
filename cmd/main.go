@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/jrmanes/torch/config"
 	handlers "github.com/jrmanes/torch/pkg/http"
-
 	"github.com/jrmanes/torch/pkg/k8s"
+
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
@@ -28,7 +28,7 @@ func ParseFlags() config.MutualPeersConfig {
 	flag.Parse()
 
 	// Read the configuration file
-	file, err := ioutil.ReadFile(*configFile)
+	file, err := os.ReadFile(*configFile)
 	if err != nil {
 		log.Error("Config file doesn't exist...", err)
 	}
