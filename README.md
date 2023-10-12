@@ -93,14 +93,23 @@ Here is an example of the flow, using the config:
 mutualPeers:
   - consensusNode: "consensus-validator-1"
   - peers:
+      - nodeName: "consensus-full-1-0"
+        containerName: "consensus-setup"
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
       - nodeName: "da-bridge-1-0"
         containerName: "da"
         connectsAsEnvVar: true
+        nodeType: "da"
         connectsTo:
           - "consensus-full-1-0"
   - peers:
       - nodeName: "da-full-1-0"
         containerName: "da"
+        nodeType: "da"
         connectsTo:
           - "da-bridge-1-0"
     trustedPeersPath: "/tmp"
