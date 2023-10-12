@@ -12,7 +12,7 @@ Torch access to the nodes defined in the config file and get's their multiaddres
 
 ---
 
-## Flow
+## Workflow
 
 Nodes side:
 - Nodes check their `ENV` var during the start-up process
