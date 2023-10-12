@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"net/http"
 
 	"github.com/jrmanes/torch/config"
@@ -100,6 +101,45 @@ func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) 
 	}
 }
 
+// GetNoId handles the HTTP GET request for retrieving the list of matching pods as JSON.
+func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
+	//listOfPods := k8s.GenerateList(cfg)
+
+	nodeName := mux.Vars(r)["nodeName"]
+	if nodeName == "" {
+		log.Error("User param nodeName is empty", http.StatusNotFound)
+		return
+	}
+
+	log.Info("node name: ", nodeName)
+	nodeIDs := k8s.GetAllIDs()
+	for s, s2 := range nodeIDs {
+		log.Info(s)
+		log.Info(s2)
+	}
+
+	// Generate the response, adding the matching pod names
+	resp := Response{
+		Status: http.StatusOK,
+		Body:   nodeIDs,
+		Errors: nil,
+	}
+
+	jsonData, err := json.Marshal(resp)
+	if err != nil {
+		log.Error("Error marshaling to JSON:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err = w.Write(jsonData)
+	if err != nil {
+		log.Error("Error writing response:", err)
+	}
+}
+
 // Gen handles the HTTP POST request to create the files with their ids
 func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	var body RequestBody
@@ -118,6 +158,16 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 
 	pod := body.Body
 	log.Info(pod)
+
+	// check the node in config and create the env var if needed
+	for _, mutualPeer := range cfg.MutualPeers {
+		for _, peer := range mutualPeer.Peers {
+			if peer.NodeName == pod {
+				log.Info("PodName valid, found in the config, executing remote SetEnvVarInNodes...")
+				err = k8s.SetEnvVarInNodes(peer)
+			}
+		}
+	}
 
 	output, err := k8s.GenerateTrustedPeersAddr(cfg, pod)
 	if err != nil {

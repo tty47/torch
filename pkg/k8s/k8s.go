@@ -10,14 +10,15 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -73,50 +74,12 @@ func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string)
 	return false, "", ""
 }
 
-// GenerateList generates a list of matching pods based on the configured NodeName values.
-func GenerateList(cfg config.MutualPeersConfig) []string {
-	// matchingPods Stores the matching pods.
-	var matchingPods []string
-
-	clusterConfig, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatalf("Error %v", err)
-	}
-	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(clusterConfig)
-	if err != nil {
-		log.Fatalf("Error %v", err)
-	}
-
-	log.Info("Namespace: ", GetCurrentNamespace())
-
-	// get pods in the current namespace
-	pods, err := clientset.CoreV1().Pods(GetCurrentNamespace()).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		log.Error("Failed to get pods:", err)
-	}
-
-	log.Info("There are ", len(pods.Items), " pods in the namespace")
-
-	// Check if the pod names match the configured NodeName values
-	for _, pod := range pods.Items {
-		podName := pod.Name
-		for _, mutualPeer := range cfg.MutualPeers {
-			for _, peer := range mutualPeer.Peers {
-				if podName == peer.NodeName {
-					log.Info("Pod matches the name: ", pod.Name, " ", peer.NodeName)
-					matchingPods = append(matchingPods, podName)
-				}
-			}
-		}
-	}
-
-	// matchingPods Stores the matching pods.
-	return matchingPods
-}
-
 // GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string, error) {
+	red := redis.InitRedisConfig()
+	ctx := context.TODO()
+	output := ""
+
 	// validate if the node received is ok
 	ok, pod, cont := validateNode(pod, cfg)
 	if !ok {
@@ -124,19 +87,35 @@ func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string,
 		return "", errors.New("Pod name not valid...")
 	}
 
-	// get the command
-	command := CreateTrustedPeerCommand()
-
-	log.Info("Pod found: ", pod, " ", cont, " ", GetCurrentNamespace())
-
-	output, err := RunRemoteCommand(
-		pod,
-		cont,
-		GetCurrentNamespace(),
-		command)
+	// check if the ide is already in the DB
+	nodeId, err := CheckIfNodeExistsInDB(red, ctx, pod)
 	if err != nil {
-		log.Error("Error executing remote command: ", err)
-		return "", err
+		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
+	}
+	if nodeId != "" {
+		log.Info("Pod ID found in Redis: [" + nodeId + "]")
+		output = nodeId
+	} else {
+		log.Info("Pod ID not found, let's generate the id: ", pod, " ", cont, " ", GetCurrentNamespace())
+
+		// get the command
+		command := CreateTrustedPeerCommand()
+		output, err = RunRemoteCommand(
+			pod,
+			cont,
+			GetCurrentNamespace(),
+			command)
+		if err != nil {
+			log.Error("Error executing remote command: ", err)
+			return "", err
+		}
+
+		log.Info("Adding pod id to Redis: ", pod, " [", output, "] ")
+		// save node in redis
+		err := SaveNodeId(pod, red, ctx, output)
+		if err != nil {
+			log.Error("Error SaveNodeId: ", err)
+		}
 	}
 
 	// Registering metric
@@ -157,6 +136,9 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 	// Create a map to store the pod names
 	podMap := make(map[string]bool)
 
+	red := redis.InitRedisConfig()
+	ctx := context.TODO()
+
 	// Add the pod names to the map
 	for _, p := range pod {
 		podMap[p] = true
@@ -171,7 +153,7 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 				go func(peer config.Peer) {
 					defer wg.Done()
 
-					err := GenerateAndRegisterTP(peer)
+					err := GenerateAndRegisterTP(peer, red, ctx)
 					if err != nil {
 						log.Error("Error with GenerateAndRegisterTP: ", err)
 					}
@@ -195,14 +177,25 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 // This function generates trusted peers for the specified node based on its type and
 // executes remote commands to obtain the necessary information. It also registers
 // metrics for "da" nodes.
-func GenerateAndRegisterTP(peer config.Peer) error {
+func GenerateAndRegisterTP(peer config.Peer, r *redis.RedisClient, ctx context.Context) error {
+
+	nodeId, err := CheckIfNodeExistsInDB(r, ctx, peer.NodeName)
+	if err != nil {
+		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
+	}
+	log.Info("nodeID:", nodeId)
+	if nodeId != "" {
+		log.Info("The value is in Redis, we don't need to get it again: ", nodeId)
+		return nil
+	}
+
+	err = SetEnvVarInNodes(peer)
+	if err != nil {
+		return err
+	}
+
 	// Get the command for generating trusted peers
 	command := CreateTrustedPeerCommand()
-
-	// Change the command in case the node type is "consensus"
-	if peer.NodeType == "consensus" {
-		command = CreateFileWithEnvVar(peer.ConnectsTo[0])
-	}
 
 	// Execute a remote command on the node
 	output, err := RunRemoteCommand(
@@ -222,6 +215,13 @@ func GenerateAndRegisterTP(peer config.Peer) error {
 		// Store it only when it's a "da" node
 		StoreNodeIDs(peer.NodeName, output)
 
+		// save node in redis
+		err := SaveNodeId(peer.NodeName, r, ctx, output)
+		if err != nil {
+			log.Error("Error SaveNodeId: ", err)
+			return err
+		}
+
 		// Register a multi-address metric
 		m := metrics.MultiAddrs{
 			ServiceName: "torch",
@@ -234,6 +234,102 @@ func GenerateAndRegisterTP(peer config.Peer) error {
 	}
 
 	return nil
+}
+
+// SetEnvVarInNodes configure the ENV vars for those nodes that need it
+func SetEnvVarInNodes(peer config.Peer) error {
+	red := redis.InitRedisConfig()
+	ctx := context.TODO()
+
+	// Setup nodes, check the type and generate the file to connect via ENV Var
+	if peer.NodeType == "consensus" && peer.ConnectsAsEnvVar {
+		_, err := RunRemoteCommand(
+			peer.NodeName,
+			peer.ContainerSetupName,
+			GetCurrentNamespace(),
+			CreateFileWithEnvVar(peer.ConnectsTo[0], peer.NodeType),
+		)
+		if err != nil {
+			log.Error("Error executing remote command: ", err)
+			// Handle the error or add it to a shared error channel
+			return err
+		}
+	}
+	if peer.NodeType == "da" && peer.ConnectsAsEnvVar {
+		_, err := RunRemoteCommand(
+			peer.NodeName,
+			peer.ContainerSetupName,
+			GetCurrentNamespace(),
+			CreateFileWithEnvVar(peer.ConnectsTo[0], peer.NodeType),
+		)
+		if err != nil {
+			log.Error("Error executing remote command: ", err)
+			return err
+		}
+	}
+	if peer.NodeType == "da" && !peer.ConnectsAsEnvVar {
+		log.Info("This is a da-full-node")
+		connString := ""
+
+		for i, s := range peer.ConnectsTo {
+			log.Info("connection: ", i, " to: ", s)
+			c, err := CheckIfNodeExistsInDB(red, ctx, s)
+			if err != nil {
+				log.Error("Error CheckIfNodeExistsInDB for full-node: [", peer.NodeName, "]", err)
+			}
+			// add the next one
+			if i > 0 {
+				connString = connString + "," + c
+			} else {
+				connString = c
+			}
+		}
+		log.Info("multiaddr is: ", connString)
+	}
+
+	return nil
+}
+
+// SaveNodeId stores the values in redis
+func SaveNodeId(
+	podName string,
+	r *redis.RedisClient,
+	ctx context.Context,
+	output string,
+) error {
+	// try to get the value from redis
+	// if the value is empty, then we add it
+	nodeName, err := CheckIfNodeExistsInDB(r, ctx, podName)
+	if err != nil {
+		return err
+	}
+
+	// if the node is not in the db, then we add it
+	if nodeName == "" {
+		log.Info("Node ", "["+podName+"]"+" not found in Redis, let's add it")
+		err := r.SetKey(ctx, podName, output, 1000*time.Hour)
+		if err != nil {
+			log.Error("Error adding the node to redis: ", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+// CheckIfNodeExistsInDB checks if node is in the DB and return it
+func CheckIfNodeExistsInDB(
+	r *redis.RedisClient,
+	ctx context.Context,
+	nodeName string,
+) (string, error) {
+	nodeName, err := r.GetKey(ctx, nodeName)
+	if err != nil {
+		log.Error("Error: ", err)
+		return "", err
+	}
+
+	return nodeName, err
 }
 
 func BulkTrustedPeers(pods config.MutualPeer) {

@@ -8,6 +8,7 @@ import (
 var (
 	trustedPeerFile          = "/tmp/TP-ADDR"
 	trustedPeerFileConsensus = "/home/celestia/config/TP-ADDR"
+	trustedPeerFileDA        = "/tmp/CONSENSUS_NODE_SERVICE"
 	trustedPeers             = "/tmp/"
 	cmd                      = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
 	trustedPeerPrefix        = "/ip4/" + cmd + "/tcp/2121/p2p/"
@@ -23,23 +24,20 @@ func GetTrustedPeersPath(cfg config.MutualPeer) string {
 	return cfg.TrustedPeersPath
 }
 
-// GetTrustedPeerCommand generates the command for retrieving trusted peer information.
-func GetTrustedPeerCommand() []string {
-	script := fmt.Sprintf(`#!/bin/sh
-# add the prefix to the addr
-if [ -f "%[1]s" ];then
-  cat "%[1]s"
-fi`, trustedPeerFile)
-
-	return []string{"sh", "-c", script}
-}
-
 // CreateFileWithEnvVar creates the file in the FS with the node to connect
-func CreateFileWithEnvVar(nodeToFile string) []string {
+func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
+	f := ""
+	if nodeType == "consensus" {
+		f = trustedPeerFileConsensus
+	}
+	if nodeType == "da" {
+		f = trustedPeerFileDA
+	}
+
 	script := fmt.Sprintf(`
 	#!/bin/sh
 	echo -n "%[2]s" > "%[1]s"
-	`, trustedPeerFileConsensus, nodeToFile)
+	`, f, nodeToFile)
 
 	return []string{"sh", "-c", script}
 }
