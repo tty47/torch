@@ -95,13 +95,14 @@ mutualPeers:
   - peers:
       - nodeName: "da-bridge-1-0"
         containerName: "da"
+        connectsAsEnvVar: true
+        connectsTo:
+          - "consensus-full-1-0"
+  - peers:
       - nodeName: "da-full-1-0"
         containerName: "da"
-  - peers:
-      - nodeName: "da-bridge-2-0"
-        containerName: "da"
-      - nodeName: "da-full-2-0"
-        containerName: "da"
+        connectsTo:
+          - "da-bridge-1-0"
     trustedPeersPath: "/tmp"
 ```
 
