@@ -94,7 +94,8 @@ mutualPeers:
   - consensusNode: "consensus-validator-1"
   - peers:
       - nodeName: "consensus-full-1-0"
-        containerName: "consensus-setup"
+        containerName: "consensus"
+        containerSetupName: "consensus-setup"
         connectsAsEnvVar: true
         nodeType: "consensus"
         connectsTo:
@@ -102,10 +103,11 @@ mutualPeers:
   - peers:
       - nodeName: "da-bridge-1-0"
         containerName: "da"
+        containerSetupName: "da-setup"
         connectsAsEnvVar: true
         nodeType: "da"
         connectsTo:
-          - "consensus-full-1-0"
+          - "consensus-full-1"
   - peers:
       - nodeName: "da-full-1-0"
         containerName: "da"
