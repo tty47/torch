@@ -2,15 +2,15 @@ package k8s
 
 import (
 	"fmt"
-
 	"github.com/jrmanes/torch/config"
 )
 
 var (
-	trustedPeerFile   = "/tmp/TP-ADDR"
-	trustedPeers      = "/tmp/"
-	cmd               = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
-	trustedPeerPrefix = "/ip4/" + cmd + "/tcp/2121/p2p/"
+	trustedPeerFile          = "/tmp/TP-ADDR"
+	trustedPeerFileConsensus = "/home/celestia/config/TP-ADDR"
+	trustedPeers             = "/tmp/"
+	cmd                      = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
+	trustedPeerPrefix        = "/ip4/" + cmd + "/tcp/2121/p2p/"
 )
 
 // GetTrustedPeersPath get the peers path from config or return the default value
@@ -30,6 +30,16 @@ func GetTrustedPeerCommand() []string {
 if [ -f "%[1]s" ];then
   cat "%[1]s"
 fi`, trustedPeerFile)
+
+	return []string{"sh", "-c", script}
+}
+
+// CreateFileWithEnvVar creates the file in the FS with the node to connect
+func CreateFileWithEnvVar(nodeToFile string) []string {
+	script := fmt.Sprintf(`
+	#!/bin/sh
+	echo -n "%[2]s" > "%[1]s"
+	`, trustedPeerFileConsensus, nodeToFile)
 
 	return []string{"sh", "-c", script}
 }
