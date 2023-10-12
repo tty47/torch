@@ -117,15 +117,15 @@ func GenerateList(cfg config.MutualPeersConfig) []string {
 
 // GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string, error) {
-	// get the command
-	command := CreateTrustedPeerCommand()
-
 	// validate if the node received is ok
 	ok, pod, cont := validateNode(pod, cfg)
 	if !ok {
-		log.Error("Pod name not valid", pod)
+		log.Error("Pod name not valid: ", pod)
 		return "", errors.New("Pod name not valid...")
 	}
+
+	// get the command
+	command := CreateTrustedPeerCommand()
 
 	log.Info("Pod found: ", pod, " ", cont, " ", GetCurrentNamespace())
 
@@ -154,9 +154,6 @@ func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, pod string) (string,
 
 // GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
-	// get the command
-	command := CreateTrustedPeerCommand()
-
 	// Create a map to store the pod names
 	podMap := make(map[string]bool)
 
@@ -174,27 +171,15 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 				go func(peer config.Peer) {
 					defer wg.Done()
 
-					output, err := RunRemoteCommand(
-						peer.NodeName,
-						peer.ContainerName,
-						GetCurrentNamespace(),
-						command)
+					err := GenerateAndRegisterTP(peer)
 					if err != nil {
-						log.Error("Error executing remote command: ", err)
-						// Handle the error or add it to a shared error channel
-						return
+						log.Error("Error with GenerateAndRegisterTP: ", err)
 					}
 
-					StoreNodeIDs(peer.NodeName, output)
-
-					m := metrics.MultiAddrs{
-						ServiceName: "torch",
-						NodeName:    peer.NodeName,
-						MultiAddr:   output,
-						Namespace:   GetCurrentNamespace(),
-						Value:       1,
+					if peer.NodeType == "da" {
+						log.Info("Generating config for node:", peer.NodeName)
+						BulkTrustedPeers(*mutualPeer)
 					}
-					RegisterMetric(m)
 				}(peer)
 			}
 		}
@@ -202,19 +187,53 @@ func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (ma
 
 	wg.Wait()
 
-	// generate the data on the nodes by calling BulkTrusteedPeers
-	for _, mutualPeer := range cfg.MutualPeers {
-		for _, peer := range mutualPeer.Peers {
-			// Check if the peer's NodeName is present in the podMap
-			if _, exists := podMap[peer.NodeName]; exists {
-				log.Info("Generating config for node:", peer.NodeName)
-				BulkTrustedPeers(*mutualPeer)
-				break // Skip to the next mutualPeer
-			}
-		}
+	return nodeIDsMap, nil
+}
+
+// GenerateAndRegisterTP generates trusted peers for a specific node and registers metrics.
+//
+// This function generates trusted peers for the specified node based on its type and
+// executes remote commands to obtain the necessary information. It also registers
+// metrics for "da" nodes.
+func GenerateAndRegisterTP(peer config.Peer) error {
+	// Get the command for generating trusted peers
+	command := CreateTrustedPeerCommand()
+
+	// Change the command in case the node type is "consensus"
+	if peer.NodeType == "consensus" {
+		command = CreateFileWithEnvVar(peer.ConnectsTo[0])
 	}
 
-	return nodeIDsMap, nil
+	// Execute a remote command on the node
+	output, err := RunRemoteCommand(
+		peer.NodeName,
+		peer.ContainerName,
+		GetCurrentNamespace(),
+		command)
+	if err != nil {
+		log.Error("Error executing remote command: ", err)
+		// Handle the error or add it to a shared error channel
+		return err
+	}
+	log.Info("output: ", output)
+
+	// Register the metric only if the node is of type "da"
+	if peer.NodeType == "da" {
+		// Store it only when it's a "da" node
+		StoreNodeIDs(peer.NodeName, output)
+
+		// Register a multi-address metric
+		m := metrics.MultiAddrs{
+			ServiceName: "torch",
+			NodeName:    peer.NodeName,
+			MultiAddr:   output,
+			Namespace:   GetCurrentNamespace(),
+			Value:       1,
+		}
+		RegisterMetric(m)
+	}
+
+	return nil
 }
 
 func BulkTrustedPeers(pods config.MutualPeer) {
