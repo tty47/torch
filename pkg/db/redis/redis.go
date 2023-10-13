@@ -2,11 +2,11 @@ package redis
 
 import (
 	"context"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	log "github.com/sirupsen/logrus"
 )
 
 type RedisClient struct {
@@ -55,6 +55,24 @@ func (r *RedisClient) GetKey(ctx context.Context, key string) (string, error) {
 	} else if err != nil {
 		return "", err
 	}
+	return result, nil
+}
+
+func (r *RedisClient) GetAllKeys(ctx context.Context) (map[string]string, error) {
+	result := make(map[string]string)
+	iter, err := r.client.Keys(ctx, "*").Result()
+	if err != nil {
+		log.Error("Error getting the key ", err)
+	}
+	for _, s := range iter {
+		value, err := r.GetKey(ctx, s)
+		if err != nil {
+			log.Error("Error getting the key ", s, ": ", err)
+		} else {
+			result[s] = value
+		}
+	}
+
 	return result, nil
 }
 
