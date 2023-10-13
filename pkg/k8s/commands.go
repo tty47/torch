@@ -36,8 +36,7 @@ func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
 
 	script := fmt.Sprintf(`
 	#!/bin/sh
-	echo -n "%[2]s" > "%[1]s"
-	`, f, nodeToFile)
+	echo -n "%[2]s" > "%[1]s"`, f, nodeToFile)
 
 	return []string{"sh", "-c", script}
 }
@@ -45,11 +44,12 @@ func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
 // CreateTrustedPeerCommand generates the command for creating trusted peers.
 // we have to use the shell script because we can only get the token and the
 // nodeID from the node itself
-func CreateTrustedPeerCommand() []string {
+func CreateTrustedPeerCommand(dnsConn string) []string {
+	if dnsConn != "" {
+		trustedPeerPrefix = "/dns/" + dnsConn + "/tcp/2121/p2p/"
+	}
+
 	script := fmt.Sprintf(`#!/bin/sh
-if [ -f "%[1]s" ];then
-  cat "%[1]s"
-else
  # add the prefix to the addr
   echo -n "%[2]s" > "%[1]s"
 
@@ -68,7 +68,17 @@ else
   
   echo -n "${TP_ADDR}" >> "%[1]s"
   cat "%[1]s"
-fi`, trustedPeerFile, trustedPeerPrefix)
+`, trustedPeerFile, trustedPeerPrefix)
+
+	return []string{"sh", "-c", script}
+}
+
+// WriteToFile writes content into a file
+func WriteToFile(content, file string) []string {
+	script := fmt.Sprintf(`
+	#!/bin/sh
+	echo -n "%[1]s" > "%[2]s"
+	cat "%[2]s"`, content, file)
 
 	return []string{"sh", "-c", script}
 }

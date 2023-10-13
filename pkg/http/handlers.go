@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"net/http"
 
 	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/k8s"
 
 	log "github.com/sirupsen/logrus"
@@ -76,8 +78,14 @@ func GetConfig(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersCon
 
 // List handles the HTTP GET request for retrieving the list of matching pods as JSON.
 func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
-	//listOfPods := k8s.GenerateList(cfg)
-	nodeIDs := k8s.GetAllIDs()
+	red := redis.InitRedisConfig()
+	ctx := context.TODO()
+
+	// get all values from redis
+	nodeIDs, err := red.GetAllKeys(ctx)
+	if err != nil {
+		log.Error("Error getting the keys and values: ", err)
+	}
 
 	// Generate the response, adding the matching pod names
 	resp := Response{
@@ -103,19 +111,18 @@ func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) 
 
 // GetNoId handles the HTTP GET request for retrieving the list of matching pods as JSON.
 func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
-	//listOfPods := k8s.GenerateList(cfg)
-
 	nodeName := mux.Vars(r)["nodeName"]
 	if nodeName == "" {
 		log.Error("User param nodeName is empty", http.StatusNotFound)
 		return
 	}
 
-	log.Info("node name: ", nodeName)
-	nodeIDs := k8s.GetAllIDs()
-	for s, s2 := range nodeIDs {
-		log.Info(s)
-		log.Info(s2)
+	red := redis.InitRedisConfig()
+	ctx := context.TODO()
+
+	nodeIDs, err := red.GetAllKeys(ctx)
+	if err != nil {
+		log.Error("Error getting the keys and values: ", err)
 	}
 
 	// Generate the response, adding the matching pod names
@@ -157,40 +164,53 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	}
 
 	pod := body.Body
-	log.Info(pod)
+	log.Info("Pod to setup: ", "[", pod, "]")
 
 	// check the node in config and create the env var if needed
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
 			if peer.NodeName == pod {
-				log.Info("PodName valid, found in the config, executing remote SetEnvVarInNodes...")
-				err = k8s.SetEnvVarInNodes(peer)
+				// check if the node uses env var
+				if peer.ConnectsAsEnvVar {
+					// configure the env vars for the node
+					err = k8s.SetEnvVarInNodes(peer, cfg)
+					if err != nil {
+						log.Error("Error: ", err)
+						resp := Response{
+							Status: http.StatusInternalServerError,
+							Body:   pod,
+							Errors: err,
+						}
+						ReturnResponse(resp, w, r)
+					}
+				} else {
+					// if the node doesn't use env vars, let's use the multi address
+					output, err := k8s.GenerateTrustedPeersAddr(cfg, peer)
+					if err != nil {
+						log.Error("Error: ", err)
+						resp := Response{
+							Status: http.StatusInternalServerError,
+							Body:   pod,
+							Errors: err,
+						}
+						ReturnResponse(resp, w, r)
+					}
+					// print the output -> should be the nodeId
+					log.Info(output)
+
+					nodeId := make(map[string]string)
+					nodeId[pod] = output
+
+					resp = Response{
+						Status: http.StatusOK,
+						Body:   nodeId,
+						Errors: nil,
+					}
+				}
 			}
 		}
 	}
 
-	output, err := k8s.GenerateTrustedPeersAddr(cfg, pod)
-	if err != nil {
-		log.Error("Error: ", err)
-		resp := Response{
-			Status: http.StatusInternalServerError,
-			Body:   pod,
-			Errors: err,
-		}
-		ReturnResponse(resp, w, r)
-	}
-
-	// print the output -> should be the nodeId
-	log.Info(output)
-
-	nodeId := make(map[string]string)
-	nodeId[pod] = output
-
-	resp = Response{
-		Status: http.StatusOK,
-		Body:   nodeId,
-		Errors: nil,
-	}
 	ReturnResponse(resp, w, r)
 }
 
@@ -227,6 +247,7 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 
 	// remove if the ids is empty
 	for nodeName, id := range nodeIDs {
+		log.Info("node from redis:", nodeName, " ", id)
 		if id == "" {
 			// if the id is empty, we remove it from the map
 			delete(nodeIDs, nodeName)

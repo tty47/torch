@@ -56,11 +56,11 @@ func Run(cfg config.MutualPeersConfig) {
 	}
 
 	// Register Metrics - Initialize them
-	err = RegisterMetrics(cfg)
-	if err != nil {
-		log.Errorf("Error registering metrics: %v", err)
-		return
-	}
+	//err = RegisterMetrics(cfg)
+	//if err != nil {
+	//	log.Errorf("Error registering metrics: %v", err)
+	//	return
+	//}
 
 	// Get the genesisHash
 	// check if the config has the consensusNode field defined
