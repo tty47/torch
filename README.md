@@ -109,11 +109,23 @@ mutualPeers:
         connectsTo:
           - "consensus-full-1"
   - peers:
+      - nodeName: "da-bridge-2-0"
+        containerName: "da"
+        containerSetupName: "da-setup"
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-1"
+  - peers:
       - nodeName: "da-full-1-0"
         containerName: "da"
         nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+          - "da-bridge-2"
         connectsTo:
           - "da-bridge-1-0"
+          - "da-bridge-2-0"
     trustedPeersPath: "/tmp"
 ```
 
