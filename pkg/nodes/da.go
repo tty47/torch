@@ -18,6 +18,7 @@ func SetupDANodeWithConnections(peer config.Peer, cfg config.MutualPeersConfig) 
 	connString := ""
 	dnsConn := ""
 
+	// read the connection list
 	for i, s := range peer.ConnectsTo {
 		log.Info("connection: ", i, " to: ", s)
 		c, err := CheckIfNodeExistsInDB(red, ctx, s)
@@ -48,7 +49,7 @@ func SetupDANodeWithConnections(peer config.Peer, cfg config.MutualPeersConfig) 
 	}
 
 	log.Info("multiaddr is: ", connString)
-	command := WriteToFile(connString, trustedPeerFile)
+	command := WriteToFile(connString, trustedPeers+"celestia-config/TP-ADDR")
 
 	output, err := RunRemoteCommand(
 		peer.NodeName,

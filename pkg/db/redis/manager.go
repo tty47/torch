@@ -1,17 +1,16 @@
-package k8s
+package redis
 
 import (
 	"context"
 	"time"
 
-	"github.com/jrmanes/torch/pkg/db/redis"
 	log "github.com/sirupsen/logrus"
 )
 
 // SaveNodeId stores the values in redis
 func SaveNodeId(
 	podName string,
-	r *redis.RedisClient,
+	r *RedisClient,
 	ctx context.Context,
 	output string,
 ) error {
@@ -37,7 +36,7 @@ func SaveNodeId(
 
 // CheckIfNodeExistsInDB checks if node is in the DB and return it
 func CheckIfNodeExistsInDB(
-	r *redis.RedisClient,
+	r *RedisClient,
 	ctx context.Context,
 	nodeName string,
 ) (string, error) {

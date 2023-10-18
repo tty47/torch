@@ -2,7 +2,7 @@ package k8s
 
 import (
 	"context"
-	"errors"
+	"github.com/jrmanes/torch/pkg/nodes"
 	"strings"
 	"sync"
 
@@ -18,38 +18,31 @@ type NodeAddress struct {
 	NodeName string
 }
 
-// validateNode checks if an input node is available in the config.
-func validateNode(n string, cfg config.MutualPeersConfig) (bool, string, string) {
+// ValidateNode checks if an input node is available in the config.
+func ValidateNode(n string, cfg config.MutualPeersConfig) bool {
 	// check if the node received by the request is on the list, if so, we
 	// continue the process
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
 			if peer.NodeName == n {
 				log.Info("Pod found in the config, executing remote command...")
-				return true, peer.NodeName, peer.ContainerName
+				return true
 			}
 		}
 	}
 
-	return false, "", ""
+	return false
 }
 
 // GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, p config.Peer) (string, error) {
-	// validate if the node received is ok
-	ok, pod, cont := validateNode(p.NodeName, cfg)
-	if !ok {
-		log.Error("Pod name not valid: ", pod)
-		return "", errors.New("pod name not valid")
-	}
-
 	// initialize the variables
 	red := redis.InitRedisConfig()
 	ctx := context.TODO()
 	output := ""
 
 	// check if the ide is already in the DB
-	nodeId, err := CheckIfNodeExistsInDB(red, ctx, pod)
+	nodeId, err := redis.CheckIfNodeExistsInDB(red, ctx, p.NodeName)
 	if err != nil {
 		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
 	}
@@ -59,42 +52,28 @@ func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, p config.Peer) (stri
 		log.Info("Pod ID found in Redis: [" + nodeId + "]")
 		output = nodeId
 	} else {
-		log.Info("Pod ID not found, let's generate the id: [", pod, "] ", cont, " ns: [", GetCurrentNamespace(), "]")
+		log.Info("Pod ID not found, let's generate the id: [", p.NodeName, "] ", " container: [", p.ContainerName, "] ns: [", GetCurrentNamespace(), "]")
 
-		err = SetEnvVarInNodes(p, cfg)
+		err = SetupNodesEnvVarAndConnections(p, cfg)
 		if err != nil {
-			log.Error("error while SetEnvVarInNodes: ", err)
+			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
 			return "", err
 		}
-		// read the connection list
-		// get the ids
-		// generate the string
-		// write it to the node
+	}
 
-		// get the command
-		//command := CreateTrustedPeerCommand()
-		//output, err = RunRemoteCommand(
-		//	pod,
-		//	cont,
-		//	GetCurrentNamespace(),
-		//	command)
-		//if err != nil {
-		//	log.Error("Error executing remote command: ", err)
-		//	return "", err
-		//}
-		//
-		//log.Info("Adding pod id to Redis: ", pod, " [", output, "] ")
-		//// save node in redis
-		//err := SaveNodeId(pod, red, ctx, output)
-		//if err != nil {
-		//	log.Error("Error SaveNodeId: ", err)
-		//}
+	// if the node is not using env vars and it first connection is not the same as it's name, find it's connections
+	if !p.ConnectsAsEnvVar && p.ConnectsTo[0] != p.NodeName {
+		err := SetupNodesEnvVarAndConnections(p, cfg)
+		if err != nil {
+			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
+			return "", err
+		}
 	}
 
 	// Registering metric
 	m := metrics.MultiAddrs{
 		ServiceName: "torch",
-		NodeName:    pod,
+		NodeName:    p.NodeName,
 		MultiAddr:   output,
 		Namespace:   GetCurrentNamespace(),
 		Value:       1,
@@ -162,7 +141,7 @@ func GenerateAndRegisterTP(
 ) error {
 	dnsConn := ""
 
-	nodeId, err := CheckIfNodeExistsInDB(r, ctx, peer.NodeName)
+	nodeId, err := redis.CheckIfNodeExistsInDB(r, ctx, peer.NodeName)
 	if err != nil {
 		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
 		return err
@@ -173,13 +152,16 @@ func GenerateAndRegisterTP(
 		return nil
 	}
 
-	err = SetEnvVarInNodes(peer, cfg)
+	err = SetupNodesEnvVarAndConnections(peer, cfg)
 	if err != nil {
 		return err
 	}
 
 	if len(peer.DnsConnections) > 0 {
-		trustedPeerPrefix = "/dns/" + strings.TrimSuffix(peer.NodeName, "-0") + "/tcp/2121/p2p/"
+		log.Info("The node uses dns connections", peer.DnsConnections)
+		dnsConn = "/dns/" + strings.TrimSuffix(peer.NodeName, "-0") + "/tcp/2121/p2p/"
+	} else {
+		log.Info("the node use  IP")
 	}
 
 	// Get the command for generating trusted peers
@@ -201,7 +183,7 @@ func GenerateAndRegisterTP(
 	// Register the metric only if the node is of type "da"
 	if peer.NodeType == "da" {
 		// save node in db
-		err := SaveNodeId(peer.NodeName, r, ctx, output)
+		err := redis.SaveNodeId(peer.NodeName, r, ctx, output)
 		if err != nil {
 			log.Error("Error SaveNodeId: ", err)
 			return err
@@ -221,11 +203,10 @@ func GenerateAndRegisterTP(
 	return nil
 }
 
-// SetEnvVarInNodes configure the ENV vars for those nodes that need it
-func SetEnvVarInNodes(peer config.Peer, cfg config.MutualPeersConfig) error {
-	// Setup nodes, check the type and generate the file to connect via ENV Var
-	// Configure Consensus - connected using env var
-	if peer.NodeType == "consensus" && peer.ConnectsAsEnvVar {
+// SetupNodesEnvVarAndConnections configure the ENV vars for those nodes that needs to connect via ENV var
+func SetupNodesEnvVarAndConnections(peer config.Peer, cfg config.MutualPeersConfig) error {
+	// Configure Consensus & DA - connecting using env var
+	if peer.ConnectsAsEnvVar {
 		_, err := RunRemoteCommand(
 			peer.NodeName,
 			peer.ContainerSetupName,
@@ -239,22 +220,9 @@ func SetEnvVarInNodes(peer config.Peer, cfg config.MutualPeersConfig) error {
 		}
 	}
 
-	// Configure DA Bridge Node
-	if peer.NodeType == "da" && peer.ConnectsAsEnvVar {
-		_, err := RunRemoteCommand(
-			peer.NodeName,
-			peer.ContainerSetupName,
-			GetCurrentNamespace(),
-			CreateFileWithEnvVar(peer.ConnectsTo[0], peer.NodeType),
-		)
-		if err != nil {
-			log.Error("Error executing remote command: ", err)
-			return err
-		}
-	}
-
+	// Configure DA Nodes with which are not using env var
 	if peer.NodeType == "da" && !peer.ConnectsAsEnvVar {
-		err := SetupDANodeWithConnections(peer, cfg)
+		err := nodes.SetupDANodeWithConnections(peer, cfg)
 		if err != nil {
 			return err
 		}

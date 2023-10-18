@@ -94,31 +94,39 @@ mutualPeers:
   - consensusNode: "consensus-validator-1"
   - peers:
       - nodeName: "consensus-full-1-0"
-        containerName: "consensus"
-        containerSetupName: "consensus-setup"
+        containerName: "consensus" # optional - default: consensus 
+        containerSetupName: "consensus-setup" # optional - default: consensus-setup
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
+      - nodeName: "consensus-full-2-0"
         connectsAsEnvVar: true
         nodeType: "consensus"
         connectsTo:
           - "consensus-validator-1"
   - peers:
       - nodeName: "da-bridge-1-0"
-        containerName: "da"
-        containerSetupName: "da-setup"
-        connectsAsEnvVar: true
         nodeType: "da"
+        connectsAsEnvVar: true
         connectsTo:
           - "consensus-full-1"
   - peers:
       - nodeName: "da-bridge-2-0"
-        containerName: "da"
-        containerSetupName: "da-setup"
+        nodeType: "da"
+        containerName: "da" # optional - default: da
+        containerSetupName: "da-setup" # optional - default: da-setup
         connectsAsEnvVar: true
+        connectsTo:
+          - "consensus-full-2"
+  - peers:
+      - nodeName: "da-bridge-3-0"
         nodeType: "da"
         connectsTo:
-          - "consensus-full-1"
+          - "da-bridge-1-0"
   - peers:
       - nodeName: "da-full-1-0"
-        containerName: "da"
         nodeType: "da"
         dnsConnections:
           - "da-bridge-1"
@@ -126,6 +134,11 @@ mutualPeers:
         connectsTo:
           - "da-bridge-1-0"
           - "da-bridge-2-0"
+  - peers:
+      - nodeName: "da-full-2-0"
+        nodeType: "da"
+        connectsTo:
+          - "da-bridge-1-0"
     trustedPeersPath: "/tmp"
 ```
 
