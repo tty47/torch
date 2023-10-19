@@ -16,10 +16,10 @@ type MutualPeer struct {
 type Peer struct {
 	// NodeName of the peer node.
 	NodeName           string   `yaml:"nodeName"`                     // NodeName name of the sts/deployment
-	ContainerName      string   `yaml:"containerName"`                // ContainerName name of the main container
+	NodeType           string   `yaml:"nodeType"`                     // NodeType specify the type of node
+	ContainerName      string   `yaml:"containerName,omitempty"`      // ContainerName name of the main container
 	ContainerSetupName string   `yaml:"containerSetupName,omitempty"` // ContainerSetupName initContainer name
 	ConnectsAsEnvVar   bool     `yaml:"connectsAsEnvVar,omitempty"`   // ConnectsAsEnvVar use the value as env var
-	NodeType           string   `yaml:"nodeType,omitempty"`           // NodeType specify the type of node
 	ConnectsTo         []string `yaml:"connectsTo,omitempty"`         // ConnectsTo list of nodes that it will connect to
 	DnsConnections     []string `yaml:"dnsConnections,omitempty"`     // DnsConnections list of DNS records
 }

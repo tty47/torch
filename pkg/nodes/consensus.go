@@ -1,4 +1,4 @@
-package k8s
+package nodes
 
 import (
 	"encoding/json"
@@ -8,6 +8,21 @@ import (
 	"io/ioutil"
 	"net/http"
 )
+
+var (
+	consContainerSetupName = "consensus-setup"
+	consContainerName      = "consensus"
+)
+
+func SetConsNodeDefault(peer config.Peer) config.Peer {
+	if peer.ContainerSetupName == "" {
+		peer.ContainerSetupName = consContainerSetupName
+	}
+	if peer.ContainerName == "" {
+		peer.ContainerName = consContainerName
+	}
+	return peer
+}
 
 // GenesisHash
 func GenesisHash(pods config.MutualPeersConfig) (string, string) {

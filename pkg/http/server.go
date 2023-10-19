@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"github.com/jrmanes/torch/pkg/nodes"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jrmanes/torch/config"
-	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
 
 	"github.com/gorilla/mux"
@@ -55,27 +55,11 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
-	// Register Metrics - Initialize them
-	//err = RegisterMetrics(cfg)
-	//if err != nil {
-	//	log.Errorf("Error registering metrics: %v", err)
-	//	return
-	//}
-
-	// Get the genesisHash
-	// check if the config has the consensusNode field defined
-	if cfg.MutualPeers[0].ConsensusNode != "" {
-		blockHash, earliestBlockTime := k8s.GenesisHash(cfg)
-		err = metrics.WithMetricsBlockHeight(
-			blockHash,
-			earliestBlockTime,
-			cfg.MutualPeers[0].ConsensusNode,
-			os.Getenv("POD_NAMESPACE"),
-		)
-		if err != nil {
-			log.Errorf("Error registering metric block_height_1: %v", err)
-			return
-		}
+	//
+	notOk := GenerateHashMetrics(cfg, err)
+	if notOk {
+		log.Error("Error registering metric block_height_1")
+		return
 	}
 
 	// Create the server
@@ -109,6 +93,25 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Exited Properly")
 }
 
+func GenerateHashMetrics(cfg config.MutualPeersConfig, err error) bool {
+	// Get the genesisHash
+	// check if the config has the consensusNode field defined
+	if cfg.MutualPeers[0].ConsensusNode != "" {
+		blockHash, earliestBlockTime := nodes.GenesisHash(cfg)
+		err = metrics.WithMetricsBlockHeight(
+			blockHash,
+			earliestBlockTime,
+			cfg.MutualPeers[0].ConsensusNode,
+			os.Getenv("POD_NAMESPACE"),
+		)
+		if err != nil {
+			log.Errorf("Error registering metric block_height_1: %v", err)
+			return true
+		}
+	}
+	return false
+}
+
 // RegisterMetrics generates and registers the metrics for all nodes in the configuration.
 func RegisterMetrics(cfg config.MutualPeersConfig) error {
 	log.Info("Generating initial metrics for all the nodes...")
@@ -123,7 +126,7 @@ func RegisterMetrics(cfg config.MutualPeersConfig) error {
 	}
 
 	// Generate the metrics for all nodes
-	_, err := k8s.GenerateAllTrustedPeersAddr(cfg, nodeNames)
+	_, err := nodes.GenerateAllTrustedPeersAddr(cfg, nodeNames)
 	if err != nil {
 		log.Errorf("Error GenerateAllTrustedPeersAddr: %v", err)
 		return err

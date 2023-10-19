@@ -1,9 +1,8 @@
-package k8s
+package nodes
 
 import (
 	"context"
-	"github.com/jrmanes/torch/pkg/nodes"
-	"strings"
+	"github.com/jrmanes/torch/pkg/k8s"
 	"sync"
 
 	"github.com/jrmanes/torch/config"
@@ -19,69 +18,69 @@ type NodeAddress struct {
 }
 
 // ValidateNode checks if an input node is available in the config.
-func ValidateNode(n string, cfg config.MutualPeersConfig) bool {
+func ValidateNode(n string, cfg config.MutualPeersConfig) (bool, config.Peer) {
 	// check if the node received by the request is on the list, if so, we
 	// continue the process
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
 			if peer.NodeName == n {
 				log.Info("Pod found in the config, executing remote command...")
-				return true
+				return true, peer
 			}
 		}
 	}
 
-	return false
+	return false, config.Peer{}
 }
 
-// GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
-func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, p config.Peer) (string, error) {
-	// initialize the variables
-	red := redis.InitRedisConfig()
-	ctx := context.TODO()
-	output := ""
-
-	// check if the ide is already in the DB
-	nodeId, err := redis.CheckIfNodeExistsInDB(red, ctx, p.NodeName)
-	if err != nil {
-		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
-	}
-
-	// if the node is already in the db, we just return it, otherwise, we generate them
-	if nodeId != "" {
-		log.Info("Pod ID found in Redis: [" + nodeId + "]")
-		output = nodeId
-	} else {
-		log.Info("Pod ID not found, let's generate the id: [", p.NodeName, "] ", " container: [", p.ContainerName, "] ns: [", GetCurrentNamespace(), "]")
-
-		err = SetupNodesEnvVarAndConnections(p, cfg)
-		if err != nil {
-			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
-			return "", err
-		}
-	}
-
-	// if the node is not using env vars and it first connection is not the same as it's name, find it's connections
-	if !p.ConnectsAsEnvVar && p.ConnectsTo[0] != p.NodeName {
-		err := SetupNodesEnvVarAndConnections(p, cfg)
-		if err != nil {
-			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
-			return "", err
-		}
-	}
-
-	// Registering metric
-	m := metrics.MultiAddrs{
-		ServiceName: "torch",
-		NodeName:    p.NodeName,
-		MultiAddr:   output,
-		Namespace:   GetCurrentNamespace(),
-		Value:       1,
-	}
-	RegisterMetric(m)
-
-	return output, nil
-}
+//// GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
+//func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, p config.Peer) (string, error) {
+//	// initialize the variables
+//	red := redis.InitRedisConfig()
+//	ctx := context.TODO()
+//	output := ""
+//
+//	// check if the ide is already in the DB
+//	nodeId, err := redis.CheckIfNodeExistsInDB(red, ctx, p.NodeName)
+//	if err != nil {
+//		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
+//	}
+//
+//	// if the node is already in the db, we just return it, otherwise, we generate them
+//	if nodeId != "" {
+//		log.Info("Pod ID found in Redis: [" + nodeId + "]")
+//		output = nodeId
+//	} else {
+//		log.Info("Pod ID not found, let's generate the id: [", p.NodeName, "] ", "container: [", p.ContainerName, "] ns: [", k8s.GetCurrentNamespace(), "]")
+//
+//		err = SetupNodesEnvVarAndConnections(p, cfg)
+//		if err != nil {
+//			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
+//			return "", err
+//		}
+//	}
+//
+//	// if the node is not using env vars and it first connection is not the same as it's name, find it's connections
+//	if !p.ConnectsAsEnvVar && p.ConnectsTo[0] != p.NodeName {
+//		err := SetupNodesEnvVarAndConnections(p, cfg)
+//		if err != nil {
+//			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
+//			return "", err
+//		}
+//	}
+//
+//	// Registering metric
+//	m := metrics.MultiAddrs{
+//		ServiceName: "torch",
+//		NodeName:    p.NodeName,
+//		MultiAddr:   output,
+//		Namespace:   k8s.GetCurrentNamespace(),
+//		Value:       1,
+//	}
+//	k8s.RegisterMetric(m)
+//
+//	return output, nil
+//}
 
 // GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
@@ -139,8 +138,6 @@ func GenerateAndRegisterTP(
 	r *redis.RedisClient,
 	ctx context.Context,
 ) error {
-	dnsConn := ""
-
 	nodeId, err := redis.CheckIfNodeExistsInDB(r, ctx, peer.NodeName)
 	if err != nil {
 		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
@@ -159,19 +156,19 @@ func GenerateAndRegisterTP(
 
 	if len(peer.DnsConnections) > 0 {
 		log.Info("The node uses dns connections", peer.DnsConnections)
-		dnsConn = "/dns/" + strings.TrimSuffix(peer.NodeName, "-0") + "/tcp/2121/p2p/"
+		//dnsConn = "/dns/" + strings.TrimSuffix(peer.NodeName, "-0") + "/tcp/2121/p2p/"
 	} else {
 		log.Info("the node use  IP")
 	}
 
 	// Get the command for generating trusted peers
-	command := CreateTrustedPeerCommand(dnsConn)
+	command := k8s.CreateTrustedPeerCommand()
 
 	// Execute a remote command on the node
-	output, err := RunRemoteCommand(
+	output, err := k8s.RunRemoteCommand(
 		peer.NodeName,
 		peer.ContainerName,
-		GetCurrentNamespace(),
+		k8s.GetCurrentNamespace(),
 		command)
 	if err != nil {
 		log.Error("Error executing remote command: ", err)
@@ -194,10 +191,10 @@ func GenerateAndRegisterTP(
 			ServiceName: "torch",
 			NodeName:    peer.NodeName,
 			MultiAddr:   output,
-			Namespace:   GetCurrentNamespace(),
+			Namespace:   k8s.GetCurrentNamespace(),
 			Value:       1,
 		}
-		RegisterMetric(m)
+		k8s.RegisterMetric(m)
 	}
 
 	return nil
@@ -206,26 +203,15 @@ func GenerateAndRegisterTP(
 // SetupNodesEnvVarAndConnections configure the ENV vars for those nodes that needs to connect via ENV var
 func SetupNodesEnvVarAndConnections(peer config.Peer, cfg config.MutualPeersConfig) error {
 	// Configure Consensus & DA - connecting using env var
-	if peer.ConnectsAsEnvVar {
-		_, err := RunRemoteCommand(
-			peer.NodeName,
-			peer.ContainerSetupName,
-			GetCurrentNamespace(),
-			CreateFileWithEnvVar(peer.ConnectsTo[0], peer.NodeType),
-		)
-		if err != nil {
-			log.Error("Error executing remote command: ", err)
-			// Handle the error or add it to a shared error channel
-			return err
-		}
-	}
-
-	// Configure DA Nodes with which are not using env var
-	if peer.NodeType == "da" && !peer.ConnectsAsEnvVar {
-		err := nodes.SetupDANodeWithConnections(peer, cfg)
-		if err != nil {
-			return err
-		}
+	_, err := k8s.RunRemoteCommand(
+		peer.NodeName,
+		peer.ContainerSetupName,
+		k8s.GetCurrentNamespace(),
+		k8s.CreateFileWithEnvVar(peer.ConnectsTo[0], peer.NodeType),
+	)
+	if err != nil {
+		log.Error("Error executing remote command: ", err)
+		return err
 	}
 
 	return nil

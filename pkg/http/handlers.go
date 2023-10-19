@@ -3,24 +3,25 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/gorilla/mux"
+	"errors"
 	"net/http"
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
-	"github.com/jrmanes/torch/pkg/k8s"
+	"github.com/jrmanes/torch/pkg/nodes"
 
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
 type RequestBody struct {
 	// Body response response body.
-	Body string `json:"podName"`
+	Body string `json:"pod_name"`
 }
 
 type RequestMultipleNodesBody struct {
 	// Body response response body.
-	Body []string `json:"podName"`
+	Body []string `json:"pod_name"`
 }
 
 // Response represents the response structure.
@@ -117,19 +118,42 @@ func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfi
 		return
 	}
 
+	// verify that the node is in the config
+	ok, peer := nodes.ValidateNode(nodeName, cfg)
+	if !ok {
+		log.Error("Error: Pod doesn't exists in the config")
+		resp := Response{
+			Status: http.StatusNotFound,
+			Body:   peer.NodeName,
+			Errors: errors.New("error: Pod doesn't exists in the config"),
+		}
+		ReturnResponse(resp, w, r)
+	}
+
 	red := redis.InitRedisConfig()
 	ctx := context.TODO()
 
-	nodeIDs, err := red.GetAllKeys(ctx)
+	// initialize the response struct
+	resp := Response{}
+
+	nodeIDs, err := red.GetKey(ctx, nodeName)
 	if err != nil {
 		log.Error("Error getting the keys and values: ", err)
 	}
 
-	// Generate the response, adding the matching pod names
-	resp := Response{
-		Status: http.StatusOK,
-		Body:   nodeIDs,
-		Errors: nil,
+	if nodeIDs == "" {
+		resp = Response{
+			Status: http.StatusNotFound,
+			Body:   "",
+			Errors: "[ERROR] Node [" + nodeName + "] not found",
+		}
+	} else {
+		// Generate the response, adding the matching pod names
+		resp = Response{
+			Status: http.StatusOK,
+			Body:   nodeIDs,
+			Errors: nil,
+		}
 	}
 
 	jsonData, err := json.Marshal(resp)
@@ -163,55 +187,90 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 		ReturnResponse(resp, w, r)
 	}
 
-	pod := body.Body
-	log.Info("Pod to setup: ", "[", pod, "]")
+	// verify that the node is in the config
+	ok, peer := nodes.ValidateNode(body.Body, cfg)
+	if !ok {
+		log.Error("Error: Pod doesn't exists in the config")
+		resp := Response{
+			Status: http.StatusNotFound,
+			Body:   body.Body,
+			Errors: errors.New("error: Pod doesn't exists in the config"),
+		}
+		ReturnResponse(resp, w, r)
+	}
 
-	// check the node in config and create the env var if needed
-	for _, mutualPeer := range cfg.MutualPeers {
-		for _, peer := range mutualPeer.Peers {
-			if peer.NodeName == pod {
-				// check if the node uses env var
-				if peer.ConnectsAsEnvVar {
-					// configure the env vars for the node
-					err = k8s.SetEnvVarInNodes(peer, cfg)
-					if err != nil {
-						log.Error("Error: ", err)
-						resp := Response{
-							Status: http.StatusInternalServerError,
-							Body:   pod,
-							Errors: err,
-						}
-						ReturnResponse(resp, w, r)
-					}
-				} else {
-					// if the node doesn't use env vars, let's use the multi address
-					output, err := k8s.GenerateTrustedPeersAddr(cfg, peer)
-					if err != nil {
-						log.Error("Error: ", err)
-						resp := Response{
-							Status: http.StatusInternalServerError,
-							Body:   pod,
-							Errors: err,
-						}
-						ReturnResponse(resp, w, r)
-					}
-					// print the output -> should be the nodeId
-					log.Info(output)
+	log.Info("Pod to setup: ", "[", peer.NodeName, "]")
 
-					nodeId := make(map[string]string)
-					nodeId[pod] = output
+	resp = ConfigureNode(cfg, peer, err, resp)
 
-					resp = Response{
-						Status: http.StatusOK,
-						Body:   nodeId,
-						Errors: nil,
-					}
-				}
+	ReturnResponse(resp, w, r)
+}
+
+func ConfigureNode(
+	cfg config.MutualPeersConfig,
+	peer config.Peer,
+	err error,
+	resp Response,
+) Response {
+	// Get the default values in case we need
+	switch peer.NodeType {
+	case "da":
+		peer = nodes.SetDaNodeDefault(peer)
+	case "consensus":
+		peer = nodes.SetConsNodeDefault(peer)
+	}
+
+	// check if the node uses env var
+	if peer.ConnectsAsEnvVar {
+		log.Info("Pod: [", peer.NodeName, "] ", "uses env var to connect.")
+		// configure the env vars for the node
+		err = nodes.SetupNodesEnvVarAndConnections(peer, cfg)
+		if err != nil {
+			log.Error("Error: ", err)
+			resp := Response{
+				Status: http.StatusInternalServerError,
+				Body:   peer.NodeName,
+				Errors: err,
 			}
+			return resp
 		}
 	}
 
-	ReturnResponse(resp, w, r)
+	// Configure DA Nodes with which are not using env var
+	if peer.NodeType == "da" && !peer.ConnectsAsEnvVar {
+		err := nodes.SetupDANodeWithConnections(peer, cfg)
+		if err != nil {
+			log.Error("Error: ", err)
+		}
+	}
+
+	//if len(peer.ConnectsTo) > 0 {
+	//	log.Info("Pod: [", peer.NodeName, "] ", "uses list of connections.")
+	//	// if the node doesn't use env vars, let's use the multi address
+	//	output, err := nodes.GenerateTrustedPeersAddr(cfg, peer)
+	//	if err != nil {
+	//		log.Error("Error: ", err)
+	//		resp := Response{
+	//			Status: http.StatusInternalServerError,
+	//			Body:   peer.NodeName,
+	//			Errors: err,
+	//		}
+	//		return resp
+	//	}
+	//	// print the output -> should be the nodeId
+	//	log.Info(output)
+	//
+	//	nodeId := make(map[string]string)
+	//	nodeId[peer.NodeName] = output
+	//
+	//	resp = Response{
+	//		Status: http.StatusOK,
+	//		Body:   nodeId,
+	//		Errors: nil,
+	//	}
+	//}
+
+	return resp
 }
 
 // GenAll generate the list of ids for all the nodes availabe in the config
@@ -233,7 +292,7 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 	pod := body.Body
 	log.Info(pod)
 
-	nodeIDs, err := k8s.GenerateAllTrustedPeersAddr(cfg, pod)
+	nodeIDs, err := nodes.GenerateAllTrustedPeersAddr(cfg, pod)
 	if err != nil {
 		log.Error("Error: ", err)
 		// resp -> generate the response with the error

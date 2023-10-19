@@ -2,27 +2,16 @@ package k8s
 
 import (
 	"fmt"
-	"github.com/jrmanes/torch/config"
 )
 
 var (
 	trustedPeerFile          = "/tmp/TP-ADDR"
 	trustedPeerFileConsensus = "/home/celestia/config/TP-ADDR"
 	trustedPeerFileDA        = "/tmp/CONSENSUS_NODE_SERVICE"
-	trustedPeers             = "/tmp/"
+	nodeIpFile               = "/tmp/NODE_IP"
 	cmd                      = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
 	trustedPeerPrefix        = "/ip4/" + cmd + "/tcp/2121/p2p/"
 )
-
-// GetTrustedPeersPath get the peers path from config or return the default value
-func GetTrustedPeersPath(cfg config.MutualPeer) string {
-	// if not defined in the config, return the default value
-	if cfg.TrustedPeersPath == "" {
-		return trustedPeers
-	}
-
-	return cfg.TrustedPeersPath
-}
 
 // CreateFileWithEnvVar creates the file in the FS with the node to connect
 func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
@@ -44,14 +33,10 @@ func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
 // CreateTrustedPeerCommand generates the command for creating trusted peers.
 // we have to use the shell script because we can only get the token and the
 // nodeID from the node itself
-func CreateTrustedPeerCommand(dnsConn string) []string {
-	if dnsConn != "" {
-		trustedPeerPrefix = "/dns/" + dnsConn + "/tcp/2121/p2p/"
-	}
-
+func CreateTrustedPeerCommand() []string {
 	script := fmt.Sprintf(`#!/bin/sh
  # add the prefix to the addr
-  echo -n "%[2]s" > "%[1]s"
+#  echo -n "%[2]s" > "%[1]s"
 
   # generate the token
   export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
@@ -73,6 +58,14 @@ func CreateTrustedPeerCommand(dnsConn string) []string {
 	return []string{"sh", "-c", script}
 }
 
+// GetNodeIP
+func GetNodeIP() []string {
+	script := fmt.Sprintf(`#!/bin/sh
+  echo -n "%[2]s" > "%[1]s"
+  cat "%[1]s"`, nodeIpFile, trustedPeerPrefix)
+	return []string{"sh", "-c", script}
+}
+
 // WriteToFile writes content into a file
 func WriteToFile(content, file string) []string {
 	script := fmt.Sprintf(`
@@ -80,23 +73,5 @@ func WriteToFile(content, file string) []string {
 	echo -n "%[1]s" > "%[2]s"
 	cat "%[2]s"`, content, file)
 
-	return []string{"sh", "-c", script}
-}
-
-// BulkTrustedPeerCommand generates the peers content in the files
-func BulkTrustedPeerCommand(tp string, cfg config.MutualPeer) []string {
-	// Get the path to write
-	trustedPeers = GetTrustedPeersPath(cfg)
-
-	script := fmt.Sprintf(`#!/bin/sh
-# create the folder if doesnt exists
-mkdir -p "%[3]s"
-
-if [ ! -f "%[3]s" ];then
-  cp "%[2]s" "%[3]s/TRUSTED_PEERS"
-fi
-# Generate Trusteed Peers only if they are not in the file
-grep -qF "%[1]s" "%[3]s/TRUSTED_PEERS" || echo ",%[1]s" >> "%[3]s/TRUSTED_PEERS"
-`, tp, trustedPeerFile, trustedPeers)
 	return []string{"sh", "-c", script}
 }
