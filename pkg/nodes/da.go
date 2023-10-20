@@ -17,6 +17,7 @@ var (
 	fPathDA              = "/tmp/celestia-config/TP-ADDR"
 )
 
+// SetDaNodeDefault sets the default values in case they are empty
 func SetDaNodeDefault(peer config.Peer) config.Peer {
 	if peer.ContainerSetupName == "" {
 		peer.ContainerSetupName = daContainerSetupName
@@ -36,7 +37,7 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 
 	// read the connection list
 	for i, s := range peer.ConnectsTo {
-		log.Info("connection: ", i, " to: ", s)
+		log.Info(peer.NodeName, " , connection: [", i, "] to node: [", s, "]")
 
 		// checking the node in the DB first
 		c, err := redis.CheckIfNodeExistsInDB(red, ctx, s)
@@ -47,8 +48,6 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 		// check if the MA is already in the config
 		c, addPrefix = HasAddrAlready(peer, i, c, addPrefix)
 
-		log.Debug("c: ", c)
-
 		// if the node is not in the db, then we generate it
 		if c == "" {
 			log.Info("Node ", "["+s+"]"+" NOT found in DB, let's generate it")
@@ -57,8 +56,6 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 				log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", err)
 				return err
 			}
-		} else {
-			log.Info("Node ", "["+peer.ConnectsTo[i]+"]"+" FOUND in DB: [", c, "]")
 		}
 
 		// if we have the address already, lets continue the process, otherwise, means we couldn't get the node id
@@ -72,20 +69,15 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 			log.Info("Peer connection prefix: ", c)
 		}
 
-		// add the next one
+		// check the connection index and concatenate it in case we have more than one node
 		if i > 0 {
 			connString = connString + "," + c
 		} else {
 			connString = c
 		}
 
+		// get the command to write in a file and execute the command against the node
 		command := k8s.WriteToFile(connString, fPathDA)
-		log.Debug("file to write in the node: ", fPathDA)
-		log.Debug("peer.NodeName is: ", peer.NodeName)
-		log.Debug("peer.ContainerSetupName is: ", peer.ContainerSetupName)
-		log.Debug("connString is: ", connString)
-		log.Debug("command: ", command)
-
 		output, err := k8s.RunRemoteCommand(
 			peer.NodeName,
 			peer.ContainerSetupName,
@@ -96,7 +88,7 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 			return err
 		}
 
-		log.Info("output is: ", output)
+		log.Info("MultiAddr for node ", peer.NodeName, " is: [", output, "]")
 	}
 
 	return nil
