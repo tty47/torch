@@ -238,37 +238,11 @@ func ConfigureNode(
 
 	// Configure DA Nodes with which are not using env var
 	if peer.NodeType == "da" && !peer.ConnectsAsEnvVar {
-		err := nodes.SetupDANodeWithConnections(peer, cfg)
+		err := nodes.SetupDANodeWithConnections(peer)
 		if err != nil {
 			log.Error("Error: ", err)
 		}
 	}
-
-	//if len(peer.ConnectsTo) > 0 {
-	//	log.Info("Pod: [", peer.NodeName, "] ", "uses list of connections.")
-	//	// if the node doesn't use env vars, let's use the multi address
-	//	output, err := nodes.GenerateTrustedPeersAddr(cfg, peer)
-	//	if err != nil {
-	//		log.Error("Error: ", err)
-	//		resp := Response{
-	//			Status: http.StatusInternalServerError,
-	//			Body:   peer.NodeName,
-	//			Errors: err,
-	//		}
-	//		return resp
-	//	}
-	//	// print the output -> should be the nodeId
-	//	log.Info(output)
-	//
-	//	nodeId := make(map[string]string)
-	//	nodeId[peer.NodeName] = output
-	//
-	//	resp = Response{
-	//		Status: http.StatusOK,
-	//		Body:   nodeId,
-	//		Errors: nil,
-	//	}
-	//}
 
 	return resp
 }

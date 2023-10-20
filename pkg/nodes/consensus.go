@@ -3,10 +3,12 @@ package nodes
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jrmanes/torch/config"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/jrmanes/torch/config"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (

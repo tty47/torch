@@ -33,55 +33,6 @@ func ValidateNode(n string, cfg config.MutualPeersConfig) (bool, config.Peer) {
 	return false, config.Peer{}
 }
 
-//// GenerateTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
-//func GenerateTrustedPeersAddr(cfg config.MutualPeersConfig, p config.Peer) (string, error) {
-//	// initialize the variables
-//	red := redis.InitRedisConfig()
-//	ctx := context.TODO()
-//	output := ""
-//
-//	// check if the ide is already in the DB
-//	nodeId, err := redis.CheckIfNodeExistsInDB(red, ctx, p.NodeName)
-//	if err != nil {
-//		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
-//	}
-//
-//	// if the node is already in the db, we just return it, otherwise, we generate them
-//	if nodeId != "" {
-//		log.Info("Pod ID found in Redis: [" + nodeId + "]")
-//		output = nodeId
-//	} else {
-//		log.Info("Pod ID not found, let's generate the id: [", p.NodeName, "] ", "container: [", p.ContainerName, "] ns: [", k8s.GetCurrentNamespace(), "]")
-//
-//		err = SetupNodesEnvVarAndConnections(p, cfg)
-//		if err != nil {
-//			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
-//			return "", err
-//		}
-//	}
-//
-//	// if the node is not using env vars and it first connection is not the same as it's name, find it's connections
-//	if !p.ConnectsAsEnvVar && p.ConnectsTo[0] != p.NodeName {
-//		err := SetupNodesEnvVarAndConnections(p, cfg)
-//		if err != nil {
-//			log.Error("error while SetupNodesEnvVarAndConnections: ", err)
-//			return "", err
-//		}
-//	}
-//
-//	// Registering metric
-//	m := metrics.MultiAddrs{
-//		ServiceName: "torch",
-//		NodeName:    p.NodeName,
-//		MultiAddr:   output,
-//		Namespace:   k8s.GetCurrentNamespace(),
-//		Value:       1,
-//	}
-//	k8s.RegisterMetric(m)
-//
-//	return output, nil
-//}
-
 // GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
 func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
 	// Create a map to store the pod names

@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
@@ -27,10 +28,11 @@ func SetDaNodeDefault(peer config.Peer) config.Peer {
 }
 
 // SetupDANodeWithConnections configure a DA node with connections
-func SetupDANodeWithConnections(peer config.Peer, cfg config.MutualPeersConfig) error {
+func SetupDANodeWithConnections(peer config.Peer) error {
 	red := redis.InitRedisConfig()
 	ctx := context.TODO()
 	connString := ""
+	addPrefix := true
 
 	// read the connection list
 	for i, s := range peer.ConnectsTo {
@@ -42,6 +44,11 @@ func SetupDANodeWithConnections(peer config.Peer, cfg config.MutualPeersConfig) 
 			log.Error("Error CheckIfNodeExistsInDB for full-node: [", peer.NodeName, "]", err)
 		}
 
+		// check if the MA is already in the config
+		c, addPrefix = HasAddrAlready(peer, i, c, addPrefix)
+
+		log.Debug("c: ", c)
+
 		// if the node is not in the db, then we generate it
 		if c == "" {
 			log.Info("Node ", "["+s+"]"+" NOT found in DB, let's generate it")
@@ -51,49 +58,57 @@ func SetupDANodeWithConnections(peer config.Peer, cfg config.MutualPeersConfig) 
 				return err
 			}
 		} else {
-			log.Info("Node ", "["+s+"]"+" FOUND in DB: [", c, "]")
+			log.Info("Node ", "["+peer.ConnectsTo[i]+"]"+" FOUND in DB: [", c, "]")
 		}
 
 		// if we have the address already, lets continue the process, otherwise, means we couldn't get the node id
-		if c != "" {
+		if c != "" && addPrefix {
 			// adding the node prefix
 			c, err = SetIdPrefix(peer, c, i)
 			if err != nil {
 				log.Error("Error SetIdPrefix for full-node: [", peer.NodeName, "]", err)
 				return err
 			}
-
 			log.Info("Peer connection prefix: ", c)
-			// add the next one
-			if i > 0 {
-				connString = connString + "," + c
-			} else {
-				connString = c
-			}
-
-			command := k8s.WriteToFile(connString, fPathDA)
-			log.Debug("file to write in the node: ", fPathDA)
-			log.Debug("peer.NodeName is: ", peer.NodeName)
-			log.Debug("peer.ContainerSetupName is: ", peer.ContainerSetupName)
-			log.Debug("command: ", command)
-
-			output, err := k8s.RunRemoteCommand(
-				peer.NodeName,
-				peer.ContainerSetupName,
-				k8s.GetCurrentNamespace(),
-				command)
-			if err != nil {
-				log.Error("Error executing remote command: ", err)
-				return err
-			}
-
-			log.Info("output is: ", output)
-		} else {
-			log.Info("Multi address not generated yet...")
 		}
+
+		// add the next one
+		if i > 0 {
+			connString = connString + "," + c
+		} else {
+			connString = c
+		}
+
+		command := k8s.WriteToFile(connString, fPathDA)
+		log.Debug("file to write in the node: ", fPathDA)
+		log.Debug("peer.NodeName is: ", peer.NodeName)
+		log.Debug("peer.ContainerSetupName is: ", peer.ContainerSetupName)
+		log.Debug("connString is: ", connString)
+		log.Debug("command: ", command)
+
+		output, err := k8s.RunRemoteCommand(
+			peer.NodeName,
+			peer.ContainerSetupName,
+			k8s.GetCurrentNamespace(),
+			command)
+		if err != nil {
+			log.Error("Error executing remote command: ", err)
+			return err
+		}
+
+		log.Info("output is: ", output)
 	}
 
 	return nil
+}
+
+func HasAddrAlready(peer config.Peer, i int, c string, addPrefix bool) (string, bool) {
+	// verify that we have the multi addr already specify in the config
+	if strings.Contains(peer.ConnectsTo[i], "dns") || strings.Contains(peer.ConnectsTo[i], "ip4") {
+		c = peer.ConnectsTo[i]
+		addPrefix = false
+	}
+	return c, addPrefix
 }
 
 // SetIdPrefix generates the prefix depending on dns or ip
