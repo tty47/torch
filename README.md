@@ -94,7 +94,7 @@ mutualPeers:
   - consensusNode: "consensus-validator-1"
   - peers:
       - nodeName: "consensus-full-1-0"
-        containerName: "consensus" # optional - default: consensus 
+        containerName: "consensus" # optional - default: consensus
         containerSetupName: "consensus-setup" # optional - default: consensus-setup
         connectsAsEnvVar: true
         nodeType: "consensus"
@@ -108,25 +108,29 @@ mutualPeers:
           - "consensus-validator-1"
   - peers:
       - nodeName: "da-bridge-1-0"
-        nodeType: "da"
         connectsAsEnvVar: true
+        nodeType: "da"
         connectsTo:
           - "consensus-full-1"
   - peers:
       - nodeName: "da-bridge-2-0"
-        nodeType: "da"
         containerName: "da" # optional - default: da
         containerSetupName: "da-setup" # optional - default: da-setup
         connectsAsEnvVar: true
+        nodeType: "da"
         connectsTo:
           - "consensus-full-2"
   - peers:
       - nodeName: "da-bridge-3-0"
+        containerName: "da"
         nodeType: "da"
         connectsTo:
           - "da-bridge-1-0"
+          - "da-bridge-2-0"
   - peers:
       - nodeName: "da-full-1-0"
+        containerName: "da"
+        containerSetupName: "da-setup"
         nodeType: "da"
         dnsConnections:
           - "da-bridge-1"
@@ -136,9 +140,23 @@ mutualPeers:
           - "da-bridge-2-0"
   - peers:
       - nodeName: "da-full-2-0"
+        containerName: "da"
+        containerSetupName: "da-setup"
         nodeType: "da"
         connectsTo:
           - "da-bridge-1-0"
+          - "da-bridge-2-0"
+  - peers:
+      - nodeName: "da-full-3-0"
+        nodeType: "da"
+        connectsTo:
+          # all the nodes in line using IP
+          - "/ip4/100.64.5.103/tcp/2121/p2p/12D3KooWNFpkX9fuo3GQ38FaVKdAZcTQsLr1BNE5DTHGjv2fjEHG,/ip4/100.64.5.15/tcp/2121/p2p/12D3KooWL8cqu7dFyodQNLWgJLuCzsQiv617SN9WDVX2GiZnjmeE"
+          # all the nodes in line using DNS
+          - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWKsHCeUVJqJwymyi3bGt1Gwbn5uUUFi2N9WQ7G6rUSXig,/dns/da-bridge-2/tcp/2121/p2p/12D3KooWA26WDUmejZzU6XHc4C7KQNSWaEApe5BEyXFNchAqrxhA"
+          # one node per line, either IP or DNS
+          - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWKsHCeUVJqJwymyi3bGt1Gwbn5uUUFi2N9WQ7G6rUSXig"
+          - "/dns/da-bridge-2/tcp/2121/p2p/12D3KooWA26WDUmejZzU6XHc4C7KQNSWaEApe5BEyXFNchAqrxhA"
     trustedPeersPath: "/tmp"
 ```
 
