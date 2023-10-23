@@ -47,6 +47,7 @@ echo -n "/tmp/CONSENSUS_NODE_SERVICE" > "/tmp/CONSENSUS_NODE_SERVICE"`},
 	}
 }
 
+// TestCreateTrustedPeerCommand checks the script to generate the multi address.
 func TestCreateTrustedPeerCommand(t *testing.T) {
 	tests := []struct {
 		name string
