@@ -15,8 +15,7 @@ import (
 
 // Configuration variables
 var (
-	// cfg stores the mutual peers configuration.
-	cfg config.MutualPeersConfig
+	cfg config.MutualPeersConfig // cfg stores the mutual peers' configuration.
 )
 
 // ParseFlags parses the command-line flags and reads the configuration file.
