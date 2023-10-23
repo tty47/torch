@@ -84,7 +84,7 @@ will source the value with the `start.sh`
         }
     }
     ```
-- `/api/v1/metrics`
+- `/metrics`
   - **Method**: `GET`
   - **Description**: Prometheus metrics endpoint.
 ---
