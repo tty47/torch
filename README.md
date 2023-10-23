@@ -38,6 +38,7 @@ There are two types of connections:
     - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWNFpkX9fuo3GQ38FaVKdAZcTQsLr1BNE5DTHGjv2fjEHG"
     - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWL8cqu7dFyodQNLWgJLuCzsQiv617SN9WDVX2GiZnjmeE"
   ```
+
   - If you want to generate the Multi address, you can either use the DNS or IP, to use dns, you will have to add the key `dnsConnections` and Torch will try to connect to this node, in the other hand, if you want to use IPs, just remove this key.
   - Example:
 
@@ -133,6 +134,7 @@ There are two types of connections:
 Here is an example of the flow, using the config:
 
 ```yaml
+---
 mutualPeers:
   - consensusNode: "consensus-validator-1"
   - peers:
@@ -213,6 +215,7 @@ Another example, the architecture will contain:
 - 1 DA-Full-Node-2 - connected to DA-BN-1 & DA-BN-2 using DNS
 
 ```yaml
+---
 mutualPeers:
   - consensusNode: "consensus-validator-1"
   - peers:
