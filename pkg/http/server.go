@@ -55,7 +55,7 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
-	//
+	// generate the metric from the Genesis Hash data
 	notOk := GenerateHashMetrics(cfg, err)
 	if notOk {
 		log.Error("Error registering metric block_height_1")
