@@ -2,6 +2,8 @@ package nodes
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/jrmanes/torch/config"
@@ -75,6 +77,13 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 			connString = connString + "," + c
 		} else {
 			connString = c
+		}
+
+		// validate the MA, must start with /ip4/ || /dns/
+		if !strings.HasPrefix(c, "/ip4/") && !strings.HasPrefix(c, "/dns/") {
+			errorMessage := fmt.Sprintf("Error generating the Multi Address: [%s]", c)
+			log.Error(errorMessage)
+			return errors.New(errorMessage)
 		}
 
 		log.Info("Registering metric for node: [", s, "]")
