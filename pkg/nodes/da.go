@@ -7,6 +7,7 @@ import (
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/k8s"
+	"github.com/jrmanes/torch/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -75,6 +76,17 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 		} else {
 			connString = c
 		}
+
+		log.Info("Registering metric for node: [", s, "]")
+		// Register a multi-address metric
+		m := metrics.MultiAddrs{
+			ServiceName: "torch",
+			NodeName:    s,
+			MultiAddr:   c,
+			Namespace:   k8s.GetCurrentNamespace(),
+			Value:       1,
+		}
+		k8s.RegisterMetric(m)
 
 		// get the command to write in a file and execute the command against the node
 		command := k8s.WriteToFile(connString, fPathDA)

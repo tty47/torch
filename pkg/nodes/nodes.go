@@ -137,6 +137,7 @@ func GenerateAndRegisterTP(
 			return err
 		}
 
+		log.Info("Registering metric for node: [", peer.NodeName, "]")
 		// Register a multi-address metric
 		m := metrics.MultiAddrs{
 			ServiceName: "torch",
