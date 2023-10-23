@@ -34,27 +34,8 @@ type Response struct {
 	Errors interface{} `json:"errors,omitempty"`
 }
 
-// MutualPeersConfig represents the configuration structure.
-type MutualPeersConfig struct {
-	// List of mutual peers.
-	MutualPeers []*MutualPeer `yaml:"mutualPeers"`
-}
-
-// MutualPeer represents a mutual peer structure.
-type MutualPeer struct {
-	// List of peers.
-	Peers []Peer `yaml:"peers"`
-}
-
-// Peer represents a peer structure.
-type Peer struct {
-	// NodeName of the peer node.
-	NodeName      string `yaml:"nodeName"`
-	ContainerName string `yaml:"containerName"`
-}
-
 // GetConfig handles the HTTP GET request for retrieving the config as JSON.
-func GetConfig(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
+func GetConfig(w http.ResponseWriter, cfg config.MutualPeersConfig) {
 	// Generate the response, including the configuration
 	resp := Response{
 		Status: http.StatusOK,
@@ -62,23 +43,11 @@ func GetConfig(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersCon
 		Errors: nil,
 	}
 
-	jsonData, err := json.Marshal(resp)
-	if err != nil {
-		log.Error("Error marshaling to JSON:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(jsonData)
-	if err != nil {
-		log.Error("Error writing response:", err)
-	}
+	ReturnResponse(resp, w)
 }
 
 // List handles the HTTP GET request for retrieving the list of matching pods as JSON.
-func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
+func List(w http.ResponseWriter) {
 	red := redis.InitRedisConfig()
 	ctx := context.TODO()
 
@@ -88,26 +57,14 @@ func List(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) 
 		log.Error("Error getting the keys and values: ", err)
 	}
 
-	// Generate the response, adding the matching pod names
+	// Generate the response, including the configuration
 	resp := Response{
 		Status: http.StatusOK,
 		Body:   nodeIDs,
 		Errors: nil,
 	}
 
-	jsonData, err := json.Marshal(resp)
-	if err != nil {
-		log.Error("Error marshaling to JSON:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(jsonData)
-	if err != nil {
-		log.Error("Error writing response:", err)
-	}
+	ReturnResponse(resp, w)
 }
 
 // GetNoId handles the HTTP GET request for retrieving the list of matching pods as JSON.
@@ -127,7 +84,7 @@ func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfi
 			Body:   peer.NodeName,
 			Errors: errors.New("error: Pod doesn't exists in the config"),
 		}
-		ReturnResponse(resp, w, r)
+		ReturnResponse(resp, w)
 	}
 
 	red := redis.InitRedisConfig()
@@ -156,22 +113,17 @@ func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfi
 		}
 	}
 
-	jsonData, err := json.Marshal(resp)
-	if err != nil {
-		log.Error("Error marshaling to JSON:", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+	// Generate the response, including the configuration
+	resp = Response{
+		Status: http.StatusOK,
+		Body:   nodeIDs,
+		Errors: nil,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(jsonData)
-	if err != nil {
-		log.Error("Error writing response:", err)
-	}
+	ReturnResponse(resp, w)
 }
 
-// Gen handles the HTTP POST request to create the files with their ids
+// Gen handles the HTTP POST request to create the files with their ids.
 func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	var body RequestBody
 	var resp Response
@@ -184,7 +136,7 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 			Body:   body.Body,
 			Errors: err,
 		}
-		ReturnResponse(resp, w, r)
+		ReturnResponse(resp, w)
 	}
 
 	// verify that the node is in the config
@@ -196,14 +148,14 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 			Body:   body.Body,
 			Errors: errors.New("error: Pod doesn't exists in the config"),
 		}
-		ReturnResponse(resp, w, r)
+		ReturnResponse(resp, w)
 	}
 
 	log.Info("Pod to setup: ", "[", peer.NodeName, "]")
 
 	resp = ConfigureNode(cfg, peer, err, resp)
 
-	ReturnResponse(resp, w, r)
+	ReturnResponse(resp, w)
 }
 
 func ConfigureNode(
@@ -247,7 +199,7 @@ func ConfigureNode(
 	return resp
 }
 
-// GenAll generate the list of ids for all the nodes availabe in the config
+// GenAll generate the list of ids for all the nodes available in the config.
 func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	var body RequestMultipleNodesBody
 	var resp Response
@@ -260,7 +212,7 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 			Body:   body.Body,
 			Errors: err,
 		}
-		ReturnResponse(resp, w, r)
+		ReturnResponse(resp, w)
 	}
 
 	pod := body.Body
@@ -275,7 +227,7 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 			Body:   pod,
 			Errors: err,
 		}
-		ReturnResponse(resp, w, r)
+		ReturnResponse(resp, w)
 	}
 
 	// remove if the ids is empty
@@ -293,11 +245,11 @@ func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig
 		Body:   nodeIDs,
 		Errors: nil,
 	}
-	ReturnResponse(resp, w, r)
+	ReturnResponse(resp, w)
 }
 
-// ReturnResponse assert function to write the reponse
-func ReturnResponse(resp Response, w http.ResponseWriter, r *http.Request) {
+// ReturnResponse assert function to write the response.
+func ReturnResponse(resp Response, w http.ResponseWriter) {
 	jsonData, err := json.Marshal(resp)
 	if err != nil {
 		log.Error("Error marshaling to JSON:", err)

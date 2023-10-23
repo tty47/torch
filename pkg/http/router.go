@@ -17,12 +17,12 @@ func Router(r *mux.Router, cfg config.MutualPeersConfig) *mux.Router {
 
 	// get config
 	s.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		GetConfig(w, r, cfg)
+		GetConfig(w, cfg)
 	}).Methods("GET")
 
 	// get nodes
 	s.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
-		List(w, r, cfg)
+		List(w)
 	}).Methods("GET")
 	// get node details by node name
 	s.HandleFunc("/noId/{nodeName}", func(w http.ResponseWriter, r *http.Request) {
