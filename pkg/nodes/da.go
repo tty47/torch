@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	daContainerSetupName = "da-setup"
-	daContainerName      = "da"
-	fPathDA              = "/tmp/celestia-config/TP-ADDR"
+	daContainerSetupName = "da-setup"                     // daContainerSetupName initContainer that we use to configure the nodes.
+	daContainerName      = "da"                           // daContainerName container name which the pod runs.
+	fPathDA              = "/tmp/celestia-config/TP-ADDR" // fPathDA path to the file where Torch will write.
 )
 
-// SetDaNodeDefault sets the default values in case they are empty
+// SetDaNodeDefault sets all the default values in case they are empty
 func SetDaNodeDefault(peer config.Peer) config.Peer {
 	if peer.ContainerSetupName == "" {
 		peer.ContainerSetupName = daContainerSetupName
@@ -94,6 +94,8 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 	return nil
 }
 
+// HasAddrAlready verify that the config hasn't specified the Multi Address, in case we have the MA specified, use it.
+// return: the prefix and bool
 func HasAddrAlready(peer config.Peer, i int, c string, addPrefix bool) (string, bool) {
 	// verify that we have the multi addr already specify in the config
 	if strings.Contains(peer.ConnectsTo[i], "dns") || strings.Contains(peer.ConnectsTo[i], "ip4") {
@@ -132,9 +134,8 @@ func GenerateNodeIdAndSaveIt(
 	red *redis.RedisClient,
 	ctx context.Context,
 ) (string, error) {
-	// Generate the command and run it
+	// Generate the command and run it against the connection node + it's running container
 	command := k8s.CreateTrustedPeerCommand()
-
 	output, err := k8s.RunRemoteCommand(
 		pod.ConnectsTo[connNode],
 		pod.ContainerName,
