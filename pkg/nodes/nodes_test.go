@@ -12,6 +12,7 @@ func TestValidateNode(t *testing.T) {
 		n   string
 		cfg config.MutualPeersConfig
 	}
+
 	cfg := config.MutualPeersConfig{
 		MutualPeers: []*config.MutualPeer{
 			{
