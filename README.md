@@ -6,9 +6,9 @@ Torch is the **Trusted Peers Orchestrator**.
 
 This service was created with the idea to manage [Celestia Nodes](https://github.com/celestiaorg/celestia-node/) automatically.
 
-By default, when you run some Bridge Nodes and Full Nodes, you have to specify in the Full Node the Bridge's multiaddress, this service does it automatically for you.
+You can use Torch to manage the nodes connections from a config file and Torch will manage those nodes for you.
 
-Torch access to the nodes defined in the config file and get's their multiaddress, then, it writes it to the specified path and shares the info with all the other peers defined.
+Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses information and stores them in a Redis instance.
 
 ---
 
@@ -22,7 +22,6 @@ Nodes side:
 - We store the value in the config PVC in a file, to keep it there even if we restart the pod or update it, and we 
 will source the value with the `start.sh`
 
-
 1) Torch checks the peers based on the config file, the scope is in its namespace.
   - How does it work?
     - Torch receives a request with the nodeName in the body, then, checks the config (to validate it) and
@@ -31,20 +30,22 @@ will source the value with the `start.sh`
     - once it has the addresses, it creates a file in the config PVC with the TRUSTED_PEERS value (the path can be defined in the config)
 2) Then, it restarts the nodes until all of the peers have the env var available.
 
-
 ---
 
 ## API Paths
 
-- `/config`
+- `/api/v1/config`
   - **Method**: `GET` 
-  - **Description**: returns the config added by the user, can be used to debug
-- `/list`
+  - **Description**: Returns the config added by the user, can be used to debug
+- `/api/v1/list`
   - **Method**: `GET`
-  - **Description**: returns the list of the pods available in it's namespace based on the config file
-- `/gen` 
+  - **Description**: Returns the list of the pods available in it's namespace based on the config file
+- `/api/v1/noId/<nodeName>`
+  - **Method**: `GET`
+  - **Description**: Returns the multi address of the node requested.
+- `/api/v1/gen`
   - **Method**: `POST`
-  - **Description**: starts the process to generate the trusted peers on the nodes based on the config
+  - **Description**: Starts the process to generate the trusted peers on the nodes based on the config
   - **Body Example**: 
     ```json
     {
@@ -60,9 +61,9 @@ will source the value with the `start.sh`
         }
     }
     ```
-- `/genAll`
+- `/api/v1/genAll`
   - **Method**: `POST`
-  - **Description**: generate the config for all the peers in the config file
+  - **Description**: Generate the config for all the peers in the config file
   - **Body Example**:
     ```json
     {
@@ -83,6 +84,9 @@ will source the value with the `start.sh`
         }
     }
     ```
+- `/api/v1/metrics`
+  - **Method**: `GET`
+  - **Description**: Prometheus metrics endpoint.
 ---
 
 ## How does it work?
