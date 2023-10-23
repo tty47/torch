@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	consContainerSetupName = "consensus-setup"
-	consContainerName      = "consensus"
+	consContainerSetupName = "consensus-setup" // consContainerSetupName initContainer that we use to configure the nodes.
+	consContainerName      = "consensus"       // consContainerName container name which the pod runs.
 )
 
+// SetConsNodeDefault sets all the default values in case they are empty
 func SetConsNodeDefault(peer config.Peer) config.Peer {
 	if peer.ContainerSetupName == "" {
 		peer.ContainerSetupName = consContainerSetupName
@@ -26,7 +27,8 @@ func SetConsNodeDefault(peer config.Peer) config.Peer {
 	return peer
 }
 
-// GenesisHash
+// GenesisHash connects to the node specified in: config.MutualPeersConfig.ConsensusNode
+// makes a request to the API and gets the info about the genesis and return it
 func GenesisHash(pods config.MutualPeersConfig) (string, string) {
 	consensusNode := pods.MutualPeers[0].ConsensusNode
 	url := fmt.Sprintf("http://%s:26657/block?height=1", consensusNode)
