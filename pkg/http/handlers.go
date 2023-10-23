@@ -314,7 +314,7 @@ func ReturnResponse(resp Response, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// logRequest is a middleware function that logs the incoming request.
+// LogRequest is a middleware function that logs the incoming request.
 func LogRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Info(r.Method, " ", r.URL.Path)
