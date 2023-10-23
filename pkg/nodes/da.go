@@ -81,12 +81,13 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 
 		// validate the MA, must start with /ip4/ || /dns/
 		if !strings.HasPrefix(c, "/ip4/") && !strings.HasPrefix(c, "/dns/") {
-			errorMessage := fmt.Sprintf("Error generating the Multi Address: [%s]", c)
+			errorMessage := fmt.Sprintf("Error generating the Multi Address, it must begin with /ip4/ || /dns/: [%s]", c)
 			log.Error(errorMessage)
 			return errors.New(errorMessage)
 		}
 
 		log.Info("Registering metric for node: [", s, "]")
+
 		// Register a multi-address metric
 		m := metrics.MultiAddrs{
 			ServiceName: "torch",
