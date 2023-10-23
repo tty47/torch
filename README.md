@@ -2,33 +2,58 @@
 
 ## Description
 
-Torch is the **Trusted Peers Orchestrator**.
+**Torch** is the ***Trusted Peers Orchestrator***.
 
 This service was created with the idea to manage [Celestia Nodes](https://github.com/celestiaorg/celestia-node/) automatically.
 
 You can use Torch to manage the nodes connections from a config file and Torch will manage those nodes for you.
 
-Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses information and stores them in a Redis instance.
+Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses information and stores them in a Redis instance, also, it provides some metrics to expose the node's IDs through the `/metrics` endpoint.
 
 ---
 
 ## Workflow
 
-Nodes side:
-- Nodes check their `ENV` var during the start-up process
-- If they don't have the value yet, they ask to Torch for it.
-  - They send a request to the service asking for the value -> phase-2
-  - If the service already has the addresses, return them, otherwise, check the nodes.
-- We store the value in the config PVC in a file, to keep it there even if we restart the pod or update it, and we 
-will source the value with the `start.sh`
+![Torch Flow](./docs/assets/torch.png)
 
-1) Torch checks the peers based on the config file, the scope is in its namespace.
-  - How does it work?
-    - Torch receives a request with the nodeName in the body, then, checks the config (to validate it) and
-      opens a connection to them.
-    - checks the multiaddr, and stores it in memory
-    - once it has the addresses, it creates a file in the config PVC with the TRUSTED_PEERS value (the path can be defined in the config)
-2) Then, it restarts the nodes until all of the peers have the env var available.
+When Torch receives a new request to the path `/api/v1/gen` with the node name in the body, it will verify if the node received is in the config file, if so, it will start the process, otherwise, it will reject it.
+
+There are two types of connections:
+- Using `ENV Vars`: Torch gets the data from the config file and write the connection to the node, using the `containerSetupName` to access to the node and write to a file.
+  - If the value of the key `nodeType` is `da`. Torch will try to generate the node ID once the node it will be ready to accept connections (*`containerName` will be up & running*).
+- Connection via `Multi Address`: The user can specify the `connectsTo` list of a node, that means the node will have one or more connections.
+  - You can either use the node name like: 
+  ```yaml
+  connectsTo:
+    - "da-bridge-1-0"
+    - "da-bridge-2-0"
+  ```
+  - or you can specify the full multi address:
+  ```yaml
+  connectsTo:
+    - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWNFpkX9fuo3GQ38FaVKdAZcTQsLr1BNE5DTHGjv2fjEHG"
+    - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWL8cqu7dFyodQNLWgJLuCzsQiv617SN9WDVX2GiZnjmeE"
+  ```
+  - If you want to generate the Multi address, you can either use the DNS or IP, to use dns, you will have to add the key `dnsConnections` and Torch will try to connect to this node, in the other hand, if you want to use IPs, just remove this key.
+  - Example:
+  ```yaml
+  # This will use IP to connect to da-bridge-1-0
+    - peers:
+      - nodeName: "da-full-1-0"
+        nodeType: "da"
+        connectsTo:
+          - "da-bridge-1-0"
+  # This will use DNS to connect to da-bridge-1-0 & da-bridge-2-0 
+    - peers:
+      - nodeName: "da-full-2-0"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+          - "da-bridge-2"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+  ```
 
 ---
 
@@ -79,8 +104,8 @@ will source the value with the `start.sh`
     {
         "status": 200,
         "body": {
-            "da-bridge-0": "/dns/da-bridge-0/tcp/2121/p2p/12D3KooWDMuPiHgnB6xwnpaR4cgyAdbB5aN9zwoZCATgGxnrpk1M",
-            "da-full-0": "/dns/da-full-0/tcp/2121/p2p/12D3KooWDCUaPA5ZQveFfsuAHHBNiAhEERo5J1YfbqwSZKtn9RrD"
+            "da-bridge-0": "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWDMuPiHgnB6xwnpaR4cgyAdbB5aN9zwoZCATgGxnrpk1M",
+            "da-full-0": "/dns/da-full-1/tcp/2121/p2p/12D3KooWDCUaPA5ZQveFfsuAHHBNiAhEERo5J1YfbqwSZKtn9RrD"
         }
     }
     ```
@@ -89,7 +114,7 @@ will source the value with the `start.sh`
   - **Description**: Prometheus metrics endpoint.
 ---
 
-## How does it work?
+## Config Example
 
 Here is an example of the flow, using the config:
 
@@ -164,6 +189,58 @@ mutualPeers:
     trustedPeersPath: "/tmp"
 ```
 
-![Torch Flow](./docs/assets/torch.png)
+Another example, the architecture will contain:
+- 1 Consensus - Validator
+- 2 Consensus - non-validating mode - connected to the validator
+- 1 DA-Bridge-1 - connected to the CONS-NON-VALIDATOR
+- 1 DA-Bridge-2 - connected to the CONS-NON-VALIDATOR
+- 1 DA-Full-Node-1 - connected to DA-BN-1
+- 1 DA-Full-Node-2 - connected to DA-BN-1 & DA-BN-2 using DNS
+
+```yaml
+mutualPeers:
+  - consensusNode: "consensus-validator-1"
+  - peers:
+      - nodeName: "consensus-full-1-0"
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
+      - nodeName: "consensus-full-2-0"
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
+      - nodeName: "da-bridge-1-0"
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-1"
+  - peers:
+      - nodeName: "da-bridge-2-0"
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-2"
+  - peers:
+      - nodeName: "da-full-1-0"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+        connectsTo:
+          - "da-bridge-1-0"
+  - peers:
+      - nodeName: "da-full-2-0"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+          - "da-bridge-2"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+```
+
 
 ---
