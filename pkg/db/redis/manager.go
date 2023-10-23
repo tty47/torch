@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// SaveNodeId stores the values in redis
+// SaveNodeId stores the values in redis.
 func SaveNodeId(
 	podName string,
 	r *RedisClient,
@@ -34,7 +34,7 @@ func SaveNodeId(
 	return nil
 }
 
-// CheckIfNodeExistsInDB checks if node is in the DB and return it
+// CheckIfNodeExistsInDB checks if node is in the DB and return it.
 func CheckIfNodeExistsInDB(
 	r *RedisClient,
 	ctx context.Context,

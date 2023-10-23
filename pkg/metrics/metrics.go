@@ -2,11 +2,9 @@ package metrics
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -100,11 +98,12 @@ func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespa
 	return err
 }
 
+// CalculateDaysDifference based on the date received, returns the number of days since this day.
 func CalculateDaysDifference(inputTimeString string) int {
 	layout := "2006-01-02T15:04:05.999999999Z"
 	inputTime, err := time.Parse(layout, inputTimeString)
 	if err != nil {
-		fmt.Println("Error parsing time:", err)
+		log.Error("Error parsing time: [", inputTimeString, "]", err)
 		return -1
 	}
 

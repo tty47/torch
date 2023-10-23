@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"github.com/jrmanes/torch/pkg/nodes"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/metrics"
+	"github.com/jrmanes/torch/pkg/nodes"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
