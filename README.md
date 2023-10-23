@@ -19,16 +19,20 @@ Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses
 When Torch receives a new request to the path `/api/v1/gen` with the node name in the body, it will verify if the node received is in the config file, if so, it will start the process, otherwise, it will reject it.
 
 There are two types of connections:
+
 - Using `ENV Vars`: Torch gets the data from the config file and write the connection to the node, using the `containerSetupName` to access to the node and write to a file.
   - If the value of the key `nodeType` is `da`. Torch will try to generate the node ID once the node it will be ready to accept connections (*`containerName` will be up & running*).
 - Connection via `Multi Address`: The user can specify the `connectsTo` list of a node, that means the node will have one or more connections.
-  - You can either use the node name like: 
+  - You can either use the node name like:
+
   ```yaml
   connectsTo:
     - "da-bridge-1-0"
     - "da-bridge-2-0"
   ```
+
   - or you can specify the full multi address:
+
   ```yaml
   connectsTo:
     - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWNFpkX9fuo3GQ38FaVKdAZcTQsLr1BNE5DTHGjv2fjEHG"
@@ -36,6 +40,7 @@ There are two types of connections:
   ```
   - If you want to generate the Multi address, you can either use the DNS or IP, to use dns, you will have to add the key `dnsConnections` and Torch will try to connect to this node, in the other hand, if you want to use IPs, just remove this key.
   - Example:
+
   ```yaml
   # This will use IP to connect to da-bridge-1-0
     - peers:
@@ -60,7 +65,7 @@ There are two types of connections:
 ## API Paths
 
 - `/api/v1/config`
-  - **Method**: `GET` 
+  - **Method**: `GET`
   - **Description**: Returns the config added by the user, can be used to debug
 - `/api/v1/list`
   - **Method**: `GET`
@@ -71,13 +76,16 @@ There are two types of connections:
 - `/api/v1/gen`
   - **Method**: `POST`
   - **Description**: Starts the process to generate the trusted peers on the nodes based on the config
-  - **Body Example**: 
+  - **Body Example**:
+
     ```json
     {
         "podName": "da-bridge-1"
     }
     ```
+
   - **Response Example**:
+
     ```json
     {
         "status": 200,
@@ -86,10 +94,12 @@ There are two types of connections:
         }
     }
     ```
+
 - `/api/v1/genAll`
   - **Method**: `POST`
   - **Description**: Generate the config for all the peers in the config file
   - **Body Example**:
+
     ```json
     {
         "podName": 
@@ -99,7 +109,9 @@ There are two types of connections:
         ]
     }
     ```
+
   - **Response Example**:
+
     ```json
     {
         "status": 200,
@@ -109,9 +121,11 @@ There are two types of connections:
         }
     }
     ```
+
 - `/metrics`
   - **Method**: `GET`
   - **Description**: Prometheus metrics endpoint.
+
 ---
 
 ## Config Example
@@ -190,6 +204,7 @@ mutualPeers:
 ```
 
 Another example, the architecture will contain:
+
 - 1 Consensus - Validator
 - 2 Consensus - non-validating mode - connected to the validator
 - 1 DA-Bridge-1 - connected to the CONS-NON-VALIDATOR
@@ -241,6 +256,5 @@ mutualPeers:
           - "da-bridge-1-0"
           - "da-bridge-2-0"
 ```
-
 
 ---
