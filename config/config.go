@@ -8,13 +8,12 @@ type MutualPeersConfig struct {
 // MutualPeer represents a mutual peer structure.
 type MutualPeer struct {
 	ConsensusNode    string `yaml:"consensusNode,omitempty"`    // ConsensusNode name
-	Peers            []Peer `yaml:"peers"`                      //  Peer list of peers.
+	Peers            []Peer `yaml:"peers"`                      // Peer list of peers.
 	TrustedPeersPath string `yaml:"trustedPeersPath,omitempty"` // TrustedPeersPath specify the path to keep the files
 }
 
 // Peer represents a peer structure.
 type Peer struct {
-	// NodeName of the peer node.
 	NodeName           string   `yaml:"nodeName"`                     // NodeName name of the sts/deployment
 	NodeType           string   `yaml:"nodeType"`                     // NodeType specify the type of node
 	ContainerName      string   `yaml:"containerName,omitempty"`      // ContainerName name of the main container
