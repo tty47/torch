@@ -38,7 +38,7 @@ func Router(r *mux.Router, cfg config.MutualPeersConfig) *mux.Router {
 	}).Methods("POST")
 
 	// metrics
-	s.Handle("/metrics", promhttp.Handler())
+	r.Handle("/metrics", promhttp.Handler())
 
 	return r
 }
