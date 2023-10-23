@@ -40,7 +40,7 @@ func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 	// Define the callback function that will be called periodically to observe metrics.
 	callback := func(ctx context.Context, observer metric.Observer) error {
 		for _, ma := range multiAddrs {
-			// Create labels with attributes for each multiaddress.
+			// Create labels with attributes for each multi-address.
 			labels := metric.WithAttributes(
 				attribute.String("service_name", ma.ServiceName),
 				attribute.String("node_name", ma.NodeName),
@@ -61,9 +61,9 @@ func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 
 // BlockHeight represents the information for the block height 1.
 type BlockHeight struct {
-	ServiceName string  // ServiceName Name of the service associated with the multiaddress.
-	BlockHeight string  // Namespace where the service is deployed.
-	Value       float64 // Value to be observed for the multiaddress.
+	ServiceName string  // ServiceName Name of the service associated with the multi-address.
+	BlockHeight string  // BlockHeight height of the block.
+	Value       float64 // Value to be observed for the multi-address.
 }
 
 // WithMetricsBlockHeight creates a callback function to observe metrics for block_height_1.
