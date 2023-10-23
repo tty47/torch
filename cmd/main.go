@@ -3,20 +3,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"os"
 
-	"github.com/jrmanes/torch/config"
-	handlers "github.com/jrmanes/torch/pkg/http"
+	"github.com/celestiaorg/torch/config"
+	handlers "github.com/celestiaorg/torch/pkg/http"
+	"github.com/celestiaorg/torch/pkg/k8s"
 
-	"github.com/jrmanes/torch/pkg/k8s"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
 // Configuration variables
 var (
-	// cfg stores the mutual peers configuration.
-	cfg config.MutualPeersConfig
+	cfg config.MutualPeersConfig // cfg stores the mutual peers' configuration.
 )
 
 // ParseFlags parses the command-line flags and reads the configuration file.
@@ -28,7 +27,7 @@ func ParseFlags() config.MutualPeersConfig {
 	flag.Parse()
 
 	// Read the configuration file
-	file, err := ioutil.ReadFile(*configFile)
+	file, err := os.ReadFile(*configFile)
 	if err != nil {
 		log.Error("Config file doesn't exist...", err)
 	}

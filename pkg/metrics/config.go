@@ -10,6 +10,7 @@ import (
 // InitConfig initializes the configs Prometheus - OTEL
 func InitConfig() error {
 	// Initialize the Prometheus exporter
+	log.Info("Initializing Prometheus client...")
 	exporter, err := prometheus.New()
 	if err != nil {
 		log.Fatal(err)
@@ -17,6 +18,7 @@ func InitConfig() error {
 	}
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(exporter))
 
+	log.Info("Initializing OTEL Provider...")
 	otel.SetMeterProvider(provider)
 
 	return nil

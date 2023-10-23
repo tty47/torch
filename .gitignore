@@ -3,4 +3,4 @@ torch
 .DS_Store
 .idea
 
-*otel-agent-celestia.yaml
+*otel-agent-*.yaml

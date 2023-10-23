@@ -1,6 +1,6 @@
 PROJECT_NAME := $(shell basename `pwd`)
 REPOSITORY_NAME := $(shell basename `pwd`)
-REGISTRY_NAME=ghcr.io/jrmanes
+REGISTRY_NAME=ghcr.io/celestiaorg
 LOCAL_DEV=local
 
 # Go
@@ -69,4 +69,4 @@ kubectl_deploy: docker_build_local_push kubectl_apply
 .PHYONY: kubectl_deploy
 
 kubectl_remote_kustomize_deploy: docker_build_local_push_gh kubectl_kustomize
-.PHYONY: kubectl_remote_kustomize_deploys
+.PHYONY: kubectl_remote_kustomize_deploy
