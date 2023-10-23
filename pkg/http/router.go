@@ -12,6 +12,7 @@ import (
 func Router(r *mux.Router, cfg config.MutualPeersConfig) *mux.Router {
 	r.Use(LogRequest)
 
+	// group the current version to /api/v1
 	s := r.PathPrefix("/api/v1").Subrouter()
 
 	// get config
