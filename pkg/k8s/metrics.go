@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"github.com/celestiaorg/torch/pkg/metrics"
-
 	log "github.com/sirupsen/logrus"
 )
 
