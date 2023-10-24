@@ -166,5 +166,11 @@ func SetupNodesEnvVarAndConnections(peer config.Peer, cfg config.MutualPeersConf
 		return err
 	}
 
+	// check if the node is type DA, if so, add the node to the queue to generate the Multi Address later.
+	if peer.NodeType == "da" {
+		// we use the goroutine for that, otherwise, Torch tries to keep the connection opened.
+		go AddToQueue(peer)
+	}
+
 	return nil
 }
