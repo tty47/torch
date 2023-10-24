@@ -21,4 +21,5 @@ type Peer struct {
 	ConnectsAsEnvVar   bool     `yaml:"connectsAsEnvVar,omitempty"`   // ConnectsAsEnvVar use the value as env var
 	ConnectsTo         []string `yaml:"connectsTo,omitempty"`         // ConnectsTo list of nodes that it will connect to
 	DnsConnections     []string `yaml:"dnsConnections,omitempty"`     // DnsConnections list of DNS records
+	RetryCount         int      `yaml:"retryCount,omitempty"`         // RetryCount number of retries
 }
