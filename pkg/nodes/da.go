@@ -46,15 +46,16 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 		c, err := redis.CheckIfNodeExistsInDB(red, ctx, s)
 		if err != nil {
 			log.Error("Error CheckIfNodeExistsInDB for full-node: [", peer.NodeName, "]", err)
+			return err
 		}
 
 		// check if the MA is already in the config
-		c, addPrefix = HasAddrAlready(peer, i, c, addPrefix)
+		c, addPrefix = VerifyAndUpdateMultiAddress(peer, i, c, addPrefix)
 
 		// if the node is not in the db, then we generate it
 		if c == "" {
 			log.Info("Node ", "["+s+"]"+" NOT found in DB, let's generate it")
-			c, err = GenerateNodeIdAndSaveIt(peer, i, red, ctx)
+			c, err = GenerateNodeIdAndSaveIt(peer, peer.ConnectsTo[i], red, ctx)
 			if err != nil {
 				log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", err)
 				return err
@@ -111,20 +112,24 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 		}
 
 		log.Info("MultiAddr for node ", peer.NodeName, " is: [", output, "]")
+
+		log.Info("Adding node to the queue: [", peer.NodeName, "]")
+		go AddToQueue(peer)
 	}
 
 	return nil
 }
 
-// HasAddrAlready verify that the config hasn't specified the Multi Address, in case we have the MA specified, use it.
-// return: the prefix and bool
-func HasAddrAlready(peer config.Peer, i int, c string, addPrefix bool) (string, bool) {
+// VerifyAndUpdateMultiAddress checks if the configuration contains a Multi Address at the specified index
+// and updates it if found. It returns the verified Multi Address and a boolean indicating if an update was performed.
+func VerifyAndUpdateMultiAddress(peer config.Peer, index int, currentAddr string, addPrefix bool) (string, bool) {
 	// verify that we have the multi addr already specify in the config
-	if strings.Contains(peer.ConnectsTo[i], "dns") || strings.Contains(peer.ConnectsTo[i], "ip4") {
-		c = peer.ConnectsTo[i]
+	if strings.Contains(peer.ConnectsTo[index], "dns") || strings.Contains(peer.ConnectsTo[index], "ip4") {
+		// Use the address from the configuration
+		currentAddr = peer.ConnectsTo[index]
 		addPrefix = false
 	}
-	return c, addPrefix
+	return currentAddr, addPrefix
 }
 
 // SetIdPrefix generates the prefix depending on dns or ip
@@ -152,14 +157,14 @@ func SetIdPrefix(peer config.Peer, c string, i int) (string, error) {
 // GenerateNodeIdAndSaveIt generates the node id and store it
 func GenerateNodeIdAndSaveIt(
 	pod config.Peer,
-	connNode int,
+	connNode string,
 	red *redis.RedisClient,
 	ctx context.Context,
 ) (string, error) {
 	// Generate the command and run it against the connection node + it's running container
 	command := k8s.CreateTrustedPeerCommand()
 	output, err := k8s.RunRemoteCommand(
-		pod.ConnectsTo[connNode],
+		connNode,
 		pod.ContainerName,
 		k8s.GetCurrentNamespace(),
 		command)
@@ -169,9 +174,9 @@ func GenerateNodeIdAndSaveIt(
 	}
 
 	if output != "" {
-		log.Info("Adding pod id to Redis: ", pod.ConnectsTo[connNode], " [", output, "] ")
+		log.Info("Adding pod id to Redis: ", connNode, " [", output, "] ")
 		// save node in redis
-		err = redis.SaveNodeId(pod.ConnectsTo[connNode], red, ctx, output)
+		err = redis.SaveNodeId(connNode, red, ctx, output)
 		if err != nil {
 			log.Error("Error SaveNodeId: ", err)
 			return "", err

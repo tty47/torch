@@ -84,12 +84,12 @@ func TestHasAddrAlready(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := HasAddrAlready(tt.args.peer, tt.args.i, tt.args.c, tt.args.addPrefix)
+			got, got1 := VerifyAndUpdateMultiAddress(tt.args.peer, tt.args.i, tt.args.c, tt.args.addPrefix)
 			if got != tt.want {
-				t.Errorf("HasAddrAlready() got = %v, want %v", got, tt.want)
+				t.Errorf("VerifyAndUpdateMultiAddress() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("HasAddrAlready() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("VerifyAndUpdateMultiAddress() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
