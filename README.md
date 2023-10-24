@@ -205,7 +205,9 @@ mutualPeers:
     trustedPeersPath: "/tmp"
 ```
 
-Another example, the architecture will contain:
+### Another example
+
+The architecture will contain:
 
 - 1 Consensus - Validator
 - 2 Consensus - non-validating mode - connected to the validator
