@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
 	"github.com/celestiaorg/torch/pkg/k8s"

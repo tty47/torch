@@ -1,9 +1,10 @@
 package nodes
 
 import (
-	"github.com/celestiaorg/torch/config"
 	"reflect"
 	"testing"
+
+	"github.com/celestiaorg/torch/config"
 )
 
 func TestSetConsNodeDefault(t *testing.T) {
