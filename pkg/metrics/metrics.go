@@ -13,19 +13,19 @@ import (
 // Get the meter from the global meter provider with the name "torch".
 var meter = otel.GetMeterProvider().Meter("torch")
 
-// MultiAddrs represents the information for a multiaddress.
+// MultiAddrs represents the information for a Multi Addresses.
 type MultiAddrs struct {
-	ServiceName string  // ServiceName Name of the service associated with the multiaddress.
+	ServiceName string  // ServiceName Name of the service associated with the Multi Addresses.
 	NodeName    string  // NodeName Name of the node.
-	MultiAddr   string  // MultiAddr Multiaddress value.
+	MultiAddr   string  // MultiAddr Multi Addresses value.
 	Namespace   string  // Namespace where the service is deployed.
-	Value       float64 // Value to be observed for the multiaddress.
+	Value       float64 // Value to be observed for the Multi Addresses.
 }
 
-// WithMetricsMultiAddress creates a callback function to observe metrics for multiple multiaddresses.
+// WithMetricsMultiAddress creates a callback function to observe metrics for multiple Multi Addresses.
 func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 	log.Info("registering metric: ", multiAddrs)
-	// Create a Float64ObservableGauge named "multiaddress" with a description for the metric.
+	// Create a Float64ObservableGauge named "Multi Addresses" with a description for the metric.
 	multiAddressesGauge, err := meter.Float64ObservableGauge(
 		"multiaddr",
 		metric.WithDescription("Torch - MultiAddresses"),
@@ -38,14 +38,14 @@ func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 	// Define the callback function that will be called periodically to observe metrics.
 	callback := func(ctx context.Context, observer metric.Observer) error {
 		for _, ma := range multiAddrs {
-			// Create labels with attributes for each multi-address.
+			// Create labels with attributes for each Multi Addresses.
 			labels := metric.WithAttributes(
 				attribute.String("service_name", ma.ServiceName),
 				attribute.String("node_name", ma.NodeName),
 				attribute.String("multiaddress", ma.MultiAddr),
 				attribute.String("namespace", ma.Namespace),
 			)
-			// Observe the float64 value for the current multiaddress with the associated labels.
+			// Observe the float64 value for the current Multi Addresses with the associated labels.
 			observer.ObserveFloat64(multiAddressesGauge, ma.Value, labels)
 		}
 
