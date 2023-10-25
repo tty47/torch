@@ -14,6 +14,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const errRemoteCommand = "Error executing remote command: "
+
 var (
 	daContainerSetupName = "da-setup"                     // daContainerSetupName initContainer that we use to configure the nodes.
 	daContainerName      = "da"                           // daContainerName container name which the pod runs.
@@ -107,7 +109,7 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 			k8s.GetCurrentNamespace(),
 			command)
 		if err != nil {
-			log.Error("Error executing remote command: ", err)
+			log.Error(errRemoteCommand, err)
 			return err
 		}
 
@@ -145,7 +147,7 @@ func SetIdPrefix(peer config.Peer, c string, i int) (string, error) {
 			k8s.GetCurrentNamespace(),
 			comm)
 		if err != nil {
-			log.Error("Error executing remote command: ", err)
+			log.Error(errRemoteCommand, err)
 			return "", err
 		}
 		log.Info("command - ip is: ", output)
@@ -169,7 +171,7 @@ func GenerateNodeIdAndSaveIt(
 		k8s.GetCurrentNamespace(),
 		command)
 	if err != nil {
-		log.Error("Error executing remote command: ", err)
+		log.Error(errRemoteCommand, err)
 		return "", err
 	}
 
