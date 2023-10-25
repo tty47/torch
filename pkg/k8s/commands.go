@@ -1,76 +1,70 @@
 package k8s
 
 import (
-	"fmt"
+	"bytes"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
-var (
-	trustedPeerFile          = "/tmp/TP-ADDR"
-	trustedPeerFileConsensus = "/home/celestia/config/TP-ADDR"
-	trustedPeerFileDA        = "/tmp/CONSENSUS_NODE_SERVICE"
-	nodeIpFile               = "/tmp/NODE_IP"
-	cmd                      = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
-	trustedPeerPrefix        = "/ip4/" + cmd + "/tcp/2121/p2p/"
-)
-
-// CreateFileWithEnvVar creates the file in the FS with the node to connect
-func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
-	f := ""
-	if nodeType == "consensus" {
-		f = trustedPeerFileConsensus
+// RunRemoteCommand executes a remote command on the specified node.
+func RunRemoteCommand(nodeName, container, namespace string, command []string) (string, error) {
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		log.Error("Error: ", err.Error())
 	}
-	if nodeType == "da" {
-		f = trustedPeerFileDA
+	// creates the client
+	client, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		log.Fatalf("Error: %v", err.Error())
 	}
 
-	script := fmt.Sprintf(`
-#!/bin/sh
-echo -n "%[2]s" > "%[1]s"`, f, nodeToFile)
+	// Create a request to execute the command on the specified node.
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(nodeName).
+		Namespace(namespace).
+		SubResource("exec").
+		VersionedParams(&v1.PodExecOptions{
+			Command:   command,
+			Container: container,
+			Stdin:     false,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
 
-	return []string{"sh", "-c", script}
+	// Execute the remote command.
+	output, err := executeCommand(clusterConfig, req)
+	if err != nil {
+		log.Error("failed to execute remote command: ", err)
+	}
+
+	return output, nil
 }
 
-// CreateTrustedPeerCommand generates the command for creating trusted peers.
-// we have to use the shell script because we can only get the token and the
-// nodeID from the node itself
-func CreateTrustedPeerCommand() []string {
-	script := fmt.Sprintf(`
-#!/bin/sh
-# generate the token
-export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
+// executeCommand executes the remote command using the provided configuration, request, and output writer.
+func executeCommand(config *rest.Config, req *rest.Request) (string, error) {
+	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		log.Error("failed to create SPDY executor: ", err)
+	}
 
-# remove the first warning line...
-export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
+	// Prepare the standard I/O streams.
+	var stdout, stderr bytes.Buffer
 
-# make the request and parse the response
-TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-   --header="Content-Type: application/json" \
-   --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-   --output-document - \
-   http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
+	// Execute the remote command and capture the output.
+	err = executor.Stream(remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+	if err != nil {
+		log.Error("failed to execute command stream: ", err)
+	}
 
-echo -n "${TP_ADDR}" >> "%[1]s"
-cat "%[1]s"
-`, trustedPeerFile, trustedPeerPrefix)
-
-	return []string{"sh", "-c", script}
-}
-
-// GetNodeIP
-func GetNodeIP() []string {
-	script := fmt.Sprintf(`
-#!/bin/sh
-echo -n "%[2]s" > "%[1]s"
-cat "%[1]s"`, nodeIpFile, trustedPeerPrefix)
-	return []string{"sh", "-c", script}
-}
-
-// WriteToFile writes content into a file
-func WriteToFile(content, file string) []string {
-	script := fmt.Sprintf(`
-#!/bin/sh
-echo -n "%[1]s" > "%[2]s"
-cat "%[2]s"`, content, file)
-
-	return []string{"sh", "-c", script}
+	return stdout.String(), nil
 }
