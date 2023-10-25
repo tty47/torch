@@ -46,22 +46,27 @@ func processQueue() {
 	}
 }
 
+// CheckNodesInDBOrCreateThem try to find the node in the DB, if the node is not in the DB, it tries to create it.
 func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx context.Context) {
 	log.Info("Processing Node in the queue: ", "[", peer.NodeName, "]")
 	// check if the node is in the DB
-	c, err := redis.CheckIfNodeExistsInDB(red, ctx, peer.NodeName)
+	ma, err := redis.CheckIfNodeExistsInDB(red, ctx, peer.NodeName)
 	if err != nil {
 		log.Error("Error CheckIfNodeExistsInDB for node: [", peer.NodeName, "]", err)
 	}
+
 	// if the node doesn't exist in the DB, let's try to create it
-	if c == "" {
+	if ma == "" {
 		log.Info("Node ", "["+peer.NodeName+"]"+" NOT found in DB, let's try to generate it")
-		c, err = GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
+		ma, err = GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
 		if err != nil {
 			log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", err)
 		}
 	}
-	if c == "" {
+
+	// check if the multiaddress is empty after trying to generate it
+	if ma == "" {
+		// check if the node is still under the maximum number of retries
 		if peer.RetryCount < MaxRetryCount {
 			log.Info("Node ", "["+peer.NodeName+"]"+" NOT found in DB, adding it to the queue, attempt: ", "[", peer.RetryCount, "]")
 			peer.RetryCount++ // increment the counter
@@ -70,12 +75,12 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 			log.Info("Max retry count reached for node: ", "[", peer.NodeName, "]", "it might have some issues...")
 		}
 	} else {
-		log.Info("Node ", "[", peer.NodeName, "]", " found in DB, ID: ", "[", c, "]")
+		log.Info("Node ", "[", peer.NodeName, "]", " found in DB, ID: ", "[", ma, "]")
 		// Register a multi-address metric
 		m := metrics.MultiAddrs{
 			ServiceName: "torch",
 			NodeName:    peer.NodeName,
-			MultiAddr:   c,
+			MultiAddr:   ma,
 			Namespace:   k8s.GetCurrentNamespace(),
 			Value:       1,
 		}
