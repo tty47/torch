@@ -2,11 +2,9 @@ package nodes
 
 import (
 	"context"
-	"github.com/jrmanes/torch/pkg/k8s"
-	"sync"
-
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
+	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
@@ -33,50 +31,50 @@ func ValidateNode(n string, cfg config.MutualPeersConfig) (bool, config.Peer) {
 	return false, config.Peer{}
 }
 
-// GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
-func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
-	// Create a map to store the pod names
-	podMap := make(map[string]bool)
-
-	red := redis.InitRedisConfig()
-	ctx := context.TODO()
-
-	// Add the pod names to the map
-	for _, p := range pod {
-		podMap[p] = true
-	}
-
-	var wg sync.WaitGroup
-
-	for _, mutualPeer := range cfg.MutualPeers {
-		for _, peer := range mutualPeer.Peers {
-			if _, exists := podMap[peer.NodeName]; exists {
-				wg.Add(1)
-				go func(peer config.Peer) {
-					defer wg.Done()
-
-					err := GenerateAndRegisterTP(peer, cfg, red, ctx)
-					if err != nil {
-						log.Error("Error with GenerateAndRegisterTP: ", err)
-					}
-
-					if peer.NodeType == "da" {
-						log.Info("Generating config for node:", peer.NodeName)
-					}
-				}(peer)
-			}
-		}
-	}
-
-	wg.Wait()
-
-	keysAndValues, err := red.GetAllKeys(ctx)
-	if err != nil {
-		log.Error("Error getting the keys and values: ", err)
-	}
-
-	return keysAndValues, nil
-}
+//// GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
+//func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
+//	// Create a map to store the pod names
+//	podMap := make(map[string]bool)
+//
+//	red := redis.InitRedisConfig()
+//	ctx := context.TODO()
+//
+//	// Add the pod names to the map
+//	for _, p := range pod {
+//		podMap[p] = true
+//	}
+//
+//	var wg sync.WaitGroup
+//
+//	for _, mutualPeer := range cfg.MutualPeers {
+//		for _, peer := range mutualPeer.Peers {
+//			if _, exists := podMap[peer.NodeName]; exists {
+//				wg.Add(1)
+//				go func(peer config.Peer) {
+//					defer wg.Done()
+//
+//					err := GenerateAndRegisterTP(peer, cfg, red, ctx)
+//					if err != nil {
+//						log.Error("Error with GenerateAndRegisterTP: ", err)
+//					}
+//
+//					if peer.NodeType == "da" {
+//						log.Info("Generating config for node:", peer.NodeName)
+//					}
+//				}(peer)
+//			}
+//		}
+//	}
+//
+//	wg.Wait()
+//
+//	keysAndValues, err := red.GetAllKeys(ctx)
+//	if err != nil {
+//		log.Error("Error getting the keys and values: ", err)
+//	}
+//
+//	return keysAndValues, nil
+//}
 
 // GenerateAndRegisterTP generates trusted peers for a specific node and registers metrics.
 //

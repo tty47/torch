@@ -21,7 +21,7 @@ var (
 // ProcessTaskQueue processes the pending tasks in the queue every 5 seconds.
 func ProcessTaskQueue() {
 	ticker := time.NewTicker(5 * time.Second) // Set the interval to 5 seconds
-	defer ticker.Stop()                       // Stop the ticker when the function exits
+	//defer ticker.Stop()                       // Stop the ticker when the function exits
 
 	for {
 		select {
