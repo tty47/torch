@@ -1,12 +1,38 @@
-FROM golang:1.21.0-bullseye AS builder
+# stage 1 Generate celestia-appd Binary
+FROM --platform=$BUILDPLATFORM docker.io/golang:1.21.3-alpine3.18 as builder
+
+ARG TARGETOS
+ARG TARGETARCH
+ENV CGO_ENABLED=0
+ENV GO111MODULE=on
+
 WORKDIR /
+
 COPY go.mod go.sum ./
 # Download dependencies
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /go/bin/torch ./cmd/main.go
+RUN CGO_ENABLED=${CGO_ENABLED} GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o /go/bin/torch ./cmd/main.go
 
-FROM alpine:latest
+# stage 2
+FROM docker.io/alpine:3.18.4
 WORKDIR /
+# Read here why UID 10001: https://github.com/hexops/dockerfile/blob/main/README.md#do-not-use-a-uid-below-10000
+ARG UID=10001
+ARG USER_NAME=torch
+
+ENV USR_HOME=/home/${USER_NAME}
+
+# hadolint ignore=DL3018
+RUN adduser ${USER_NAME} \
+    -D \
+    -g ${USER_NAME} \
+    -h ${USR_HOME} \
+    -s /sbin/nologin \
+    -u ${UID}
+
 COPY --from=builder /go/bin/torch .
+
+EXPOSE 8080
+
 ENTRYPOINT ["./torch"]
