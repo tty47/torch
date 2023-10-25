@@ -2,8 +2,6 @@ package nodes
 
 import (
 	"context"
-	"sync"
-
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
 	"github.com/celestiaorg/torch/pkg/k8s"
@@ -33,50 +31,50 @@ func ValidateNode(n string, cfg config.MutualPeersConfig) (bool, config.Peer) {
 	return false, config.Peer{}
 }
 
-// GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
-func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
-	// Create a map to store the pod names
-	podMap := make(map[string]bool)
-
-	red := redis.InitRedisConfig()
-	ctx := context.TODO()
-
-	// Add the pod names to the map
-	for _, p := range pod {
-		podMap[p] = true
-	}
-
-	var wg sync.WaitGroup
-
-	for _, mutualPeer := range cfg.MutualPeers {
-		for _, peer := range mutualPeer.Peers {
-			if _, exists := podMap[peer.NodeName]; exists {
-				wg.Add(1)
-				go func(peer config.Peer) {
-					defer wg.Done()
-
-					err := GenerateAndRegisterTP(peer, cfg, red, ctx)
-					if err != nil {
-						log.Error("Error with GenerateAndRegisterTP: ", err)
-					}
-
-					if peer.NodeType == "da" {
-						log.Info("Generating config for node:", peer.NodeName)
-					}
-				}(peer)
-			}
-		}
-	}
-
-	wg.Wait()
-
-	keysAndValues, err := red.GetAllKeys(ctx)
-	if err != nil {
-		log.Error("Error getting the keys and values: ", err)
-	}
-
-	return keysAndValues, nil
-}
+//// GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
+//func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
+//	// Create a map to store the pod names
+//	podMap := make(map[string]bool)
+//
+//	red := redis.InitRedisConfig()
+//	ctx := context.TODO()
+//
+//	// Add the pod names to the map
+//	for _, p := range pod {
+//		podMap[p] = true
+//	}
+//
+//	var wg sync.WaitGroup
+//
+//	for _, mutualPeer := range cfg.MutualPeers {
+//		for _, peer := range mutualPeer.Peers {
+//			if _, exists := podMap[peer.NodeName]; exists {
+//				wg.Add(1)
+//				go func(peer config.Peer) {
+//					defer wg.Done()
+//
+//					err := GenerateAndRegisterTP(peer, cfg, red, ctx)
+//					if err != nil {
+//						log.Error("Error with GenerateAndRegisterTP: ", err)
+//					}
+//
+//					if peer.NodeType == "da" {
+//						log.Info("Generating config for node:", peer.NodeName)
+//					}
+//				}(peer)
+//			}
+//		}
+//	}
+//
+//	wg.Wait()
+//
+//	keysAndValues, err := red.GetAllKeys(ctx)
+//	if err != nil {
+//		log.Error("Error getting the keys and values: ", err)
+//	}
+//
+//	return keysAndValues, nil
+//}
 
 // GenerateAndRegisterTP generates trusted peers for a specific node and registers metrics.
 //
@@ -164,6 +162,12 @@ func SetupNodesEnvVarAndConnections(peer config.Peer, cfg config.MutualPeersConf
 	if err != nil {
 		log.Error("Error executing remote command: ", err)
 		return err
+	}
+
+	// check if the node is type DA, if so, add the node to the queue to generate the Multi Address later.
+	if peer.NodeType == "da" {
+		// we use the goroutine for that, otherwise, Torch tries to keep the connection opened.
+		go AddToQueue(peer)
 	}
 
 	return nil

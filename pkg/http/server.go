@@ -79,6 +79,9 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
 
+	log.Info("Initializing queues to process the nodes...")
+	go nodes.ProcessTaskQueue()
+
 	<-done
 	log.Info("Server Stopped")
 

@@ -14,6 +14,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// errorMsg common error message.
+const errorMsg = "Error: "
+
 type RequestBody struct {
 	// Body response response body.
 	Body string `json:"pod_name"`
@@ -78,7 +81,7 @@ func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfi
 	// verify that the node is in the config
 	ok, peer := nodes.ValidateNode(nodeName, cfg)
 	if !ok {
-		log.Error("Error: Pod doesn't exists in the config")
+		log.Error(errorMsg, "Pod doesn't exists in the config")
 		resp := Response{
 			Status: http.StatusNotFound,
 			Body:   peer.NodeName,
@@ -142,7 +145,7 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 	// verify that the node is in the config
 	ok, peer := nodes.ValidateNode(body.Body, cfg)
 	if !ok {
-		log.Error("Error: Pod doesn't exists in the config")
+		log.Error(errorMsg, "Pod doesn't exists in the config")
 		resp := Response{
 			Status: http.StatusNotFound,
 			Body:   body.Body,
@@ -153,7 +156,7 @@ func Gen(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
 
 	log.Info("Pod to setup: ", "[", peer.NodeName, "]")
 
-	resp = ConfigureNode(cfg, peer, err, resp)
+	resp = ConfigureNode(cfg, peer, err)
 
 	ReturnResponse(resp, w)
 }
@@ -162,7 +165,6 @@ func ConfigureNode(
 	cfg config.MutualPeersConfig,
 	peer config.Peer,
 	err error,
-	resp Response,
 ) Response {
 	// Get the default values in case we need
 	switch peer.NodeType {
@@ -178,13 +180,12 @@ func ConfigureNode(
 		// configure the env vars for the node
 		err = nodes.SetupNodesEnvVarAndConnections(peer, cfg)
 		if err != nil {
-			log.Error("Error: ", err)
-			resp := Response{
+			log.Error(errorMsg, err)
+			return Response{
 				Status: http.StatusInternalServerError,
 				Body:   peer.NodeName,
 				Errors: err,
 			}
-			return resp
 		}
 	}
 
@@ -192,61 +193,72 @@ func ConfigureNode(
 	if peer.NodeType == "da" && !peer.ConnectsAsEnvVar {
 		err := nodes.SetupDANodeWithConnections(peer)
 		if err != nil {
-			log.Error("Error: ", err)
+			log.Error(errorMsg, err)
+			return Response{
+				Status: http.StatusInternalServerError,
+				Body:   peer.NodeName,
+				Errors: err,
+			}
 		}
 	}
 
-	return resp
-}
-
-// GenAll generate the list of ids for all the nodes available in the config.
-func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
-	var body RequestMultipleNodesBody
-	var resp Response
-
-	err := json.NewDecoder(r.Body).Decode(&body)
-	if err != nil {
-		log.Error("Error decoding the request body into the struct:", err)
-		resp := Response{
-			Status: http.StatusInternalServerError,
-			Body:   body.Body,
-			Errors: err,
-		}
-		ReturnResponse(resp, w)
-	}
-
-	pod := body.Body
-	log.Info(pod)
-
-	nodeIDs, err := nodes.GenerateAllTrustedPeersAddr(cfg, pod)
-	if err != nil {
-		log.Error("Error: ", err)
-		// resp -> generate the response with the error
-		resp := Response{
-			Status: http.StatusInternalServerError,
-			Body:   pod,
-			Errors: err,
-		}
-		ReturnResponse(resp, w)
-	}
-
-	// remove if the ids is empty
-	for nodeName, id := range nodeIDs {
-		log.Info("node from redis:", nodeName, " ", id)
-		if id == "" {
-			// if the id is empty, we remove it from the map
-			delete(nodeIDs, nodeName)
-		}
-	}
-
-	// resp -> generate the response
-	resp = Response{
+	// return the resp with status 200 and the node name.
+	return Response{
 		Status: http.StatusOK,
-		Body:   nodeIDs,
-		Errors: nil,
+		Body:   peer.NodeName,
+		Errors: "",
 	}
-	ReturnResponse(resp, w)
 }
+
+// comment this endpoint for now.
+//// GenAll generate the list of ids for all the nodes available in the config.
+//func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
+//	var body RequestMultipleNodesBody
+//	var resp Response
+//
+//	err := json.NewDecoder(r.Body).Decode(&body)
+//	if err != nil {
+//		log.Error("Error decoding the request body into the struct:", err)
+//		resp := Response{
+//			Status: http.StatusInternalServerError,
+//			Body:   body.Body,
+//			Errors: err,
+//		}
+//		ReturnResponse(resp, w)
+//	}
+//
+//	pod := body.Body
+//	log.Info(pod)
+//
+//	nodeIDs, err := nodes.GenerateAllTrustedPeersAddr(cfg, pod)
+//	if err != nil {
+//		log.Error(errorMsg, err)
+//		// resp -> generate the response with the error
+//		resp := Response{
+//			Status: http.StatusInternalServerError,
+//			Body:   pod,
+//			Errors: err,
+//		}
+//		ReturnResponse(resp, w)
+//	}
+//
+//	// remove if the ids is empty
+//	for nodeName, id := range nodeIDs {
+//		log.Info("node from redis:", nodeName, " ", id)
+//		if id == "" {
+//			// if the id is empty, we remove it from the map
+//			delete(nodeIDs, nodeName)
+//		}
+//	}
+//
+//	// resp -> generate the response
+//	resp = Response{
+//		Status: http.StatusOK,
+//		Body:   nodeIDs,
+//		Errors: nil,
+//	}
+//	ReturnResponse(resp, w)
+//}
 
 // ReturnResponse assert function to write the response.
 func ReturnResponse(resp Response, w http.ResponseWriter) {

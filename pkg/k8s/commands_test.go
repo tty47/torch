@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// case1 common message.
+const case1 = "Case 1: Successfully script generated."
+
 // TestCreateFileWithEnvVar validates the node types and their path
 func TestCreateFileWithEnvVar(t *testing.T) {
 	type args struct {
@@ -54,7 +57,7 @@ func TestCreateTrustedPeerCommand(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "Case 1: Successfully script generated.",
+			name: case1,
 			want: []string{"sh", "-c", `
 #!/bin/sh
 # generate the token
@@ -91,7 +94,7 @@ func TestGetNodeIP(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "Case 1: Successfully script generated.",
+			name: case1,
 			want: []string{"sh", "-c", `
 #!/bin/sh
 echo -n "/ip4/$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')/tcp/2121/p2p/" > "/tmp/NODE_IP"
@@ -119,7 +122,7 @@ func TestWriteToFile(t *testing.T) {
 		want []string
 	}{
 		{
-			name: "Case 1: Successfully script generated.",
+			name: case1,
 			args: args{
 				content: "THIS IS A TEST",
 				file:    "/tmp/test_file",
