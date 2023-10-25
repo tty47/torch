@@ -64,7 +64,7 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 		}
 	}
 
-	// check if the multiaddress is empty after trying to generate it
+	// check if the multi address is empty after trying to generate it
 	if ma == "" {
 		// check if the node is still under the maximum number of retries
 		if peer.RetryCount < MaxRetryCount {
