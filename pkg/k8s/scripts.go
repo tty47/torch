@@ -13,7 +13,7 @@ var (
 	trustedPeerPrefix        = "/ip4/" + cmd + "/tcp/2121/p2p/"
 )
 
-// CreateFileWithEnvVar creates the file in the FS with the node to connect
+// CreateFileWithEnvVar creates the file in the FS with the node to connect.
 func CreateFileWithEnvVar(nodeToFile, nodeType string) []string {
 	f := ""
 	if nodeType == "consensus" {
@@ -32,7 +32,7 @@ echo -n "%[2]s" > "%[1]s"`, f, nodeToFile)
 
 // CreateTrustedPeerCommand generates the command for creating trusted peers.
 // we have to use the shell script because we can only get the token and the
-// nodeID from the node itself
+// nodeID from the node itself.
 func CreateTrustedPeerCommand() []string {
 	script := fmt.Sprintf(`
 #!/bin/sh
@@ -56,16 +56,17 @@ cat "%[1]s"
 	return []string{"sh", "-c", script}
 }
 
-// GetNodeIP
+// GetNodeIP adds the node IP to a file.
 func GetNodeIP() []string {
 	script := fmt.Sprintf(`
 #!/bin/sh
 echo -n "%[2]s" > "%[1]s"
 cat "%[1]s"`, nodeIpFile, trustedPeerPrefix)
+
 	return []string{"sh", "-c", script}
 }
 
-// WriteToFile writes content into a file
+// WriteToFile writes content into a file.
 func WriteToFile(content, file string) []string {
 	script := fmt.Sprintf(`
 #!/bin/sh
