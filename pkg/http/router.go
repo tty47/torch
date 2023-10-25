@@ -34,11 +34,6 @@ func Router(r *mux.Router, cfg config.MutualPeersConfig) *mux.Router {
 		Gen(w, r, cfg)
 	}).Methods("POST")
 
-	// comment this endpoint for now.
-	//s.HandleFunc("/genAll", func(w http.ResponseWriter, r *http.Request) {
-	//	GenAll(w, r, cfg)
-	//}).Methods("POST")
-
 	// metrics
 	r.Handle("/metrics", promhttp.Handler())
 

@@ -84,7 +84,7 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 
 		// validate the MA, must start with /ip4/ || /dns/
 		if !strings.HasPrefix(ma, "/ip4/") && !strings.HasPrefix(ma, "/dns/") {
-			errorMessage := fmt.Sprintf("Error generating the MultiAddress, must begin with /ip4/ || /dns/: [%nodeName]", ma)
+			errorMessage := fmt.Sprintf("Error generating the MultiAddress, must begin with /ip4/ || /dns/: [%s]", ma)
 			log.Error(errorMessage)
 			return errors.New(errorMessage)
 		}

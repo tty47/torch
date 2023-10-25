@@ -28,7 +28,7 @@ func GetHttpPort() string {
 	// Ensure that the provided port is a valid numeric value
 	_, err := strconv.Atoi(port)
 	if err != nil {
-		log.Error("Invalid HTTP_PORT value: %v. Using default port 8080")
+		log.Error("Invalid HTTP_PORT [", os.Getenv("HTTP_PORT"), "] ,using default port 8080")
 		return "8080"
 	}
 
@@ -115,25 +115,26 @@ func GenerateHashMetrics(cfg config.MutualPeersConfig, err error) bool {
 	return false
 }
 
-// RegisterMetrics generates and registers the metrics for all nodes in the configuration.
-func RegisterMetrics(cfg config.MutualPeersConfig) error {
-	log.Info("Generating initial metrics for all the nodes...")
-
-	var nodeNames []string
-
-	// Adding nodes from config to register the initial metrics
-	for _, n := range cfg.MutualPeers {
-		for _, no := range n.Peers {
-			nodeNames = append(nodeNames, no.NodeName)
-		}
-	}
-
-	// Generate the metrics for all nodes
-	_, err := nodes.GenerateAllTrustedPeersAddr(cfg, nodeNames)
-	if err != nil {
-		log.Errorf("Error GenerateAllTrustedPeersAddr: %v", err)
-		return err
-	}
-
-	return nil
-}
+//
+//// RegisterMetrics generates and registers the metrics for all nodes in the configuration.
+//func RegisterMetrics(cfg config.MutualPeersConfig) error {
+//	log.Info("Generating initial metrics for all the nodes...")
+//
+//	var nodeNames []string
+//
+//	// Adding nodes from config to register the initial metrics
+//	for _, n := range cfg.MutualPeers {
+//		for _, no := range n.Peers {
+//			nodeNames = append(nodeNames, no.NodeName)
+//		}
+//	}
+//
+//	// Generate the metrics for all nodes
+//	_, err := nodes.GenerateAllTrustedPeersAddr(cfg, nodeNames)
+//	if err != nil {
+//		log.Errorf("Error GenerateAllTrustedPeersAddr: %v", err)
+//		return err
+//	}
+//
+//	return nil
+//}
