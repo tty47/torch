@@ -96,33 +96,6 @@ There are two types of connections:
     }
     ```
 
-- `/api/v1/genAll`
-  - **Method**: `POST`
-  - **Description**: Generate the config for all the peers in the config file
-  - **Body Example**:
-
-    ```json
-    {
-        "podName": 
-        [
-            "da-bridge-1",
-            "da-full-1"
-        ]
-    }
-    ```
-
-  - **Response Example**:
-
-    ```json
-    {
-        "status": 200,
-        "body": {
-            "da-bridge-0": "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWDMuPiHgnB6xwnpaR4cgyAdbB5aN9zwoZCATgGxnrpk1M",
-            "da-full-0": "/dns/da-full-1/tcp/2121/p2p/12D3KooWDCUaPA5ZQveFfsuAHHBNiAhEERo5J1YfbqwSZKtn9RrD"
-        }
-    }
-    ```
-
 - `/metrics`
   - **Method**: `GET`
   - **Description**: Prometheus metrics endpoint.
