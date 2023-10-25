@@ -4,11 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/celestiaorg/torch/pkg/k8s"
-	"github.com/celestiaorg/torch/pkg/metrics"
-
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
+	"github.com/celestiaorg/torch/pkg/k8s"
+	"github.com/celestiaorg/torch/pkg/metrics"
 
 	log "github.com/sirupsen/logrus"
 )
