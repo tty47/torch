@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
 	"github.com/jrmanes/torch/pkg/nodes"
-
-	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
 )
 
 // GetHttpPort GetPort retrieves the namespace where the service will be deployed
