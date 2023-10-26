@@ -16,6 +16,7 @@ type MutualPeer struct {
 type Peer struct {
 	NodeName           string   `yaml:"nodeName"`                     // NodeName name of the sts/deployment
 	NodeType           string   `yaml:"nodeType"`                     // NodeType specify the type of node
+	Namespace          string   `yaml:"namespace,omitempty"`          // Namespace of the node
 	ContainerName      string   `yaml:"containerName,omitempty"`      // ContainerName name of the main container
 	ContainerSetupName string   `yaml:"containerSetupName,omitempty"` // ContainerSetupName initContainer name
 	ConnectsAsEnvVar   bool     `yaml:"connectsAsEnvVar,omitempty"`   // ConnectsAsEnvVar use the value as env var
