@@ -1,4 +1,4 @@
-package nodes
+package k8s
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
-	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
+	"github.com/jrmanes/torch/pkg/nodes"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -57,7 +57,7 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 	// if the node doesn't exist in the DB, let's try to create it
 	if ma == "" {
 		log.Info("Node ", "["+peer.NodeName+"]"+" NOT found in DB, let's try to generate it")
-		ma, err = GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
+		ma, err = nodes.GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
 		if err != nil {
 			log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", err)
 		}
@@ -80,10 +80,10 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 			ServiceName: "torch",
 			NodeName:    peer.NodeName,
 			MultiAddr:   ma,
-			Namespace:   k8s.GetCurrentNamespace(),
+			Namespace:   peer.Namespace,
 			Value:       1,
 		}
-		k8s.RegisterMetric(m)
+		metrics.RegisterMetric(m)
 	}
 }
 
