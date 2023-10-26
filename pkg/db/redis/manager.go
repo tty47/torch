@@ -7,8 +7,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// SaveNodeId stores the values in redis.
-func SaveNodeId(
+// SetNodeId stores the values in redis.
+func SetNodeId(
 	podName string,
 	r *RedisClient,
 	ctx context.Context,
@@ -29,6 +29,8 @@ func SaveNodeId(
 			log.Error("Error adding the node to redis: ", err)
 			return err
 		}
+	} else {
+		log.Info("Node ", "["+podName+"]"+" found in Redis")
 	}
 
 	return nil

@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -11,28 +10,6 @@ import (
 
 type RedisClient struct {
 	client *redis.Client
-}
-
-// InitRedisConfig checks env vars and add default values in case we need
-func InitRedisConfig() *RedisClient {
-	// redis config
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		redisHost = "localhost"
-	}
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		redisPort = "6379"
-	}
-	redisHost = redisHost + ":" + redisPort
-	log.Info("Redis host to connect: ", redisHost)
-
-	redisPass := os.Getenv("REDIS_PASS")
-	if redisHost == "" {
-		redisPass = ""
-	}
-
-	return NewRedisClient(redisHost, redisPass, 0)
 }
 
 // NewRedisClient returns a Redis client connection
