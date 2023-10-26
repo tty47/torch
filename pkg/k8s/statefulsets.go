@@ -43,9 +43,6 @@ func WatchStatefulSets() {
 	// Watch for events on the watcher channel
 	for event := range watcher.ResultChan() {
 		if statefulSet, ok := event.Object.(*v1.StatefulSet); ok {
-			//log.Info("StatefulSet: ", statefulSet)
-			//log.Info("StatefulSet name: ", statefulSet.Name)
-			//log.Info("StatefulSet namespace: ", statefulSet.Namespace)
 			//log.Info("StatefulSet containers: ", statefulSet.Spec.Template.Spec.Containers)
 
 			// check if the node is DA, if so, send it to the queue to generate the multi address

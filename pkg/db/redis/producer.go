@@ -8,7 +8,7 @@ import (
 // Producer add data into the queue.
 func Producer(data, queueName string) error {
 	log.Info("Adding STS [", data, "] node to the queue: [", queueName, "]")
-	data += "-0"
+	data += "-0" // we add the suffix as the pods have it in their name when we use a StatefulSet.
 	log.Info("Getting the pod from the STS [", data, "]")
 
 	connection, err := rmq.OpenConnection(
