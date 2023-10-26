@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
 	"github.com/celestiaorg/torch/pkg/k8s"
 	"github.com/celestiaorg/torch/pkg/metrics"
 	"github.com/celestiaorg/torch/pkg/nodes"
-
-	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
 )
 
 // GetHttpPort GetPort retrieves the namespace where the service will be deployed
@@ -89,6 +89,10 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Initializing goroutine to watch over the StatefulSets...")
 	go k8s.WatchStatefulSets()
 
+	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
+	log.Info("Initializing Redis consumer")
+	go nodes.ConsumerInit("k8s")
+
 	// Check if we already have some multi addresses in the DB and expose them, there might be a situation where Torch
 	// get restarted, and we already have the nodes IDs, so we can expose them.
 	err = RegisterMetrics(cfg)
@@ -132,7 +136,11 @@ func GenerateHashMetrics(cfg config.MutualPeersConfig, err error) bool {
 // RegisterMetrics generates and registers the metrics for all nodes in case they already exist in the DB.
 func RegisterMetrics(cfg config.MutualPeersConfig) error {
 	red := redis.InitRedisConfig()
-	ctx := context.TODO()
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
 
 	log.Info("Generating metrics from existing nodes...")
 
@@ -155,10 +163,10 @@ func RegisterMetrics(cfg config.MutualPeersConfig) error {
 					ServiceName: "torch",
 					NodeName:    no.NodeName,
 					MultiAddr:   ma,
-					Namespace:   k8s.GetCurrentNamespace(),
+					Namespace:   no.Namespace,
 					Value:       1,
 				}
-				k8s.RegisterMetric(m)
+				metrics.RegisterMetric(m)
 			}
 		}
 	}
