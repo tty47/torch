@@ -235,4 +235,14 @@ mutualPeers:
           - "da-bridge-2-0"
 ```
 
+## Requirements
+
+### Redis
+
+Torch uses [Redis](https://redis.io/) as a DB, so to use Torch, you need to have a Redis instance available to connect.
+
+We are using Redis in two different ways:
+- Store the Nodes IDs and reuse them.
+- As a message broker, where Torch uses Producer & Consumer approach to process data async.
+
 ---
