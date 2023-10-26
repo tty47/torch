@@ -5,17 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
+
+	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/nodes"
-
-	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
 )
 
-// errorMsg common error message.
-const errorMsg = "Error: "
+const (
+	errorMsg        = "Error: "        // errorMsg common error message.
+	timeoutDuration = 30 * time.Second // timeoutDuration we specify the max time to run the func.
+)
 
 type RequestBody struct {
 	// Body response response body.
@@ -52,7 +55,11 @@ func GetConfig(w http.ResponseWriter, cfg config.MutualPeersConfig) {
 // List handles the HTTP GET request for retrieving the list of matching pods as JSON.
 func List(w http.ResponseWriter) {
 	red := redis.InitRedisConfig()
-	ctx := context.TODO()
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
 
 	// get all values from redis
 	nodeIDs, err := red.GetAllKeys(ctx)
@@ -91,7 +98,11 @@ func GetNoId(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfi
 	}
 
 	red := redis.InitRedisConfig()
-	ctx := context.TODO()
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
 
 	// initialize the response struct
 	resp := Response{}

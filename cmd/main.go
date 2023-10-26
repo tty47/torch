@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"os"
 
+	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+
 	"github.com/jrmanes/torch/config"
 	handlers "github.com/jrmanes/torch/pkg/http"
 	"github.com/jrmanes/torch/pkg/k8s"
-
-	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
 
 // Configuration variables
-var (
-	cfg config.MutualPeersConfig // cfg stores the mutual peers' configuration.
-)
+//var (
+//	cfg config.MutualPeersConfig // cfg stores the mutual peers' configuration.
+//)
 
 // ParseFlags parses the command-line flags and reads the configuration file.
 func ParseFlags() config.MutualPeersConfig {
@@ -31,6 +31,8 @@ func ParseFlags() config.MutualPeersConfig {
 	if err != nil {
 		log.Error("Config file doesn't exist...", err)
 	}
+
+	cfg := config.MutualPeersConfig{}
 
 	// Unmarshal the YAML into a struct
 	err = yaml.Unmarshal(file, &cfg)
@@ -58,7 +60,7 @@ func main() {
 	PrintName()
 	// Parse the command-line flags and read the configuration file
 	log.Info("Running on namespace: ", k8s.GetCurrentNamespace())
-	cfg = ParseFlags()
+	cfg := ParseFlags()
 
 	handlers.Run(cfg)
 }

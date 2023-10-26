@@ -5,21 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
-
-	log "github.com/sirupsen/logrus"
 )
 
-const errRemoteCommand = "Error executing remote command: "
+const (
+	errRemoteCommand = "Error executing remote command: "
+	timeoutDuration  = 30 * time.Second // timeoutDuration we specify the max time to run the func.
+)
 
 var (
 	daContainerSetupName = "da-setup"                     // daContainerSetupName initContainer that we use to configure the nodes.
 	daContainerName      = "da"                           // daContainerName container name which the pod runs.
 	fPathDA              = "/tmp/celestia-config/TP-ADDR" // fPathDA path to the file where Torch will write.
+	ns                   = k8s.GetCurrentNamespace()      // ns namespace of the node.
 )
 
 // SetDaNodeDefault sets all the default values in case they are empty
@@ -30,15 +35,22 @@ func SetDaNodeDefault(peer config.Peer) config.Peer {
 	if peer.ContainerName == "" {
 		peer.ContainerName = daContainerName
 	}
+	if peer.Namespace == "" {
+		peer.Namespace = ns
+	}
 	return peer
 }
 
 // SetupDANodeWithConnections configure a DA node with connections
 func SetupDANodeWithConnections(peer config.Peer) error {
 	red := redis.InitRedisConfig()
-	ctx := context.TODO()
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
 	connString := ""
 	addPrefix := true
+
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
 
 	// read the connection list
 	for index, nodeName := range peer.ConnectsTo {
@@ -96,10 +108,10 @@ func SetupDANodeWithConnections(peer config.Peer) error {
 			ServiceName: "torch",
 			NodeName:    nodeName,
 			MultiAddr:   ma,
-			Namespace:   k8s.GetCurrentNamespace(),
+			Namespace:   peer.Namespace,
 			Value:       1,
 		}
-		k8s.RegisterMetric(m)
+		metrics.RegisterMetric(m)
 
 		// get the command to write in a file and execute the command against the node
 		command := k8s.WriteToFile(connString, fPathDA)
@@ -178,9 +190,9 @@ func GenerateNodeIdAndSaveIt(
 	if output != "" {
 		log.Info("Adding pod id to Redis: ", connNode, " [", output, "] ")
 		// save node in redis
-		err = redis.SaveNodeId(connNode, red, ctx, output)
+		err = redis.SetNodeId(connNode, red, ctx, output)
 		if err != nil {
-			log.Error("Error SaveNodeId: ", err)
+			log.Error("Error SetNodeId: ", err)
 			return "", err
 		}
 	} else {

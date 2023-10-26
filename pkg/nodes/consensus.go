@@ -6,14 +6,16 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/jrmanes/torch/config"
-
 	log "github.com/sirupsen/logrus"
+
+	"github.com/jrmanes/torch/config"
+	"github.com/jrmanes/torch/pkg/k8s"
 )
 
 var (
-	consContainerSetupName = "consensus-setup" // consContainerSetupName initContainer that we use to configure the nodes.
-	consContainerName      = "consensus"       // consContainerName container name which the pod runs.
+	consContainerSetupName = "consensus-setup"         // consContainerSetupName initContainer that we use to configure the nodes.
+	consContainerName      = "consensus"               // consContainerName container name which the pod runs.
+	namespace              = k8s.GetCurrentNamespace() // ns namespace of the node.
 )
 
 // SetConsNodeDefault sets all the default values in case they are empty
@@ -23,6 +25,9 @@ func SetConsNodeDefault(peer config.Peer) config.Peer {
 	}
 	if peer.ContainerName == "" {
 		peer.ContainerName = consContainerName
+	}
+	if peer.Namespace == "" {
+		peer.Namespace = namespace
 	}
 	return peer
 }

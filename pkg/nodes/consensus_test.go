@@ -1,9 +1,10 @@
 package nodes
 
 import (
-	"github.com/jrmanes/torch/config"
 	"reflect"
 	"testing"
+
+	"github.com/jrmanes/torch/config"
 )
 
 func TestSetConsNodeDefault(t *testing.T) {

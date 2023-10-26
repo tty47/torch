@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"bytes"
+
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"

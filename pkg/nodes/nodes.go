@@ -2,12 +2,13 @@ package nodes
 
 import (
 	"context"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/k8s"
 	"github.com/jrmanes/torch/pkg/metrics"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type NodeAddress struct {
@@ -129,9 +130,9 @@ func GenerateAndRegisterTP(
 	// Register the metric only if the node is of type "da"
 	if peer.NodeType == "da" {
 		// save node in db
-		err := redis.SaveNodeId(peer.NodeName, r, ctx, output)
+		err := redis.SetNodeId(peer.NodeName, r, ctx, output)
 		if err != nil {
-			log.Error("Error SaveNodeId: ", err)
+			log.Error("Error SetNodeId: ", err)
 			return err
 		}
 
@@ -141,10 +142,10 @@ func GenerateAndRegisterTP(
 			ServiceName: "torch",
 			NodeName:    peer.NodeName,
 			MultiAddr:   output,
-			Namespace:   k8s.GetCurrentNamespace(),
+			Namespace:   peer.Namespace,
 			Value:       1,
 		}
-		k8s.RegisterMetric(m)
+		metrics.RegisterMetric(m)
 	}
 
 	return nil
