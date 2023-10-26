@@ -13,11 +13,6 @@ import (
 	"github.com/jrmanes/torch/pkg/k8s"
 )
 
-// Configuration variables
-//var (
-//	cfg config.MutualPeersConfig // cfg stores the mutual peers' configuration.
-//)
-
 // ParseFlags parses the command-line flags and reads the configuration file.
 func ParseFlags() config.MutualPeersConfig {
 	// Define the flag for the configuration file path

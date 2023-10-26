@@ -54,11 +54,11 @@ func ConsumerInit(queueName string) {
 
 	_, err = queue.AddConsumerFunc(consumerName, func(delivery rmq.Delivery) {
 		log.Info("Performing task: ", delivery.Payload())
-
 		peer := config.Peer{
 			NodeName: delivery.Payload(),
 			NodeType: "da",
 		}
+
 		// here we wil send the node to generate the id
 		err := CheckNodesInDBOrCreateThem(peer, red, ctx)
 		if err != nil {
