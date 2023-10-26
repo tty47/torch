@@ -1,4 +1,4 @@
-# stage 1 Generate torch binary
+# stage 1 Generate torch Binary
 FROM --platform=$BUILDPLATFORM docker.io/golang:1.21.3-alpine3.18 as builder
 
 ARG TARGETOS
