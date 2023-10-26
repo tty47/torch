@@ -4,12 +4,11 @@ import (
 	"context"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
-	"github.com/celestiaorg/torch/pkg/k8s"
 	"github.com/celestiaorg/torch/pkg/metrics"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -33,12 +32,22 @@ func ProcessTaskQueue() {
 // processQueue process the nodes in the queue and tries to generate the Multi Address
 func processQueue() {
 	red := redis.InitRedisConfig()
-	ctx := context.TODO()
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
 
 	for {
 		select {
 		case peer := <-taskQueue:
-			CheckNodesInDBOrCreateThem(peer, red, ctx)
+			// TODO:
+			// errors should be returned back and go routines needs to be in errGroup instead of pure go
+			err := CheckNodesInDBOrCreateThem(peer, red, ctx)
+			if err != nil {
+				log.Error("Error checking the nodes: CheckNodesInDBOrCreateThem - ", err)
+			}
+
 		default:
 			return
 		}
@@ -46,12 +55,13 @@ func processQueue() {
 }
 
 // CheckNodesInDBOrCreateThem try to find the node in the DB, if the node is not in the DB, it tries to create it.
-func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx context.Context) {
+func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx context.Context) error {
 	log.Info("Processing Node in the queue: ", "[", peer.NodeName, "]")
 	// check if the node is in the DB
 	ma, err := redis.CheckIfNodeExistsInDB(red, ctx, peer.NodeName)
 	if err != nil {
 		log.Error("Error CheckIfNodeExistsInDB for node: [", peer.NodeName, "]", err)
+		return err
 	}
 
 	// if the node doesn't exist in the DB, let's try to create it
@@ -61,6 +71,7 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 		if err != nil {
 			log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", err)
 		}
+		return err
 	}
 
 	// check if the multi address is empty after trying to generate it
@@ -80,11 +91,13 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 			ServiceName: "torch",
 			NodeName:    peer.NodeName,
 			MultiAddr:   ma,
-			Namespace:   k8s.GetCurrentNamespace(),
+			Namespace:   peer.Namespace,
 			Value:       1,
 		}
-		k8s.RegisterMetric(m)
+		metrics.RegisterMetric(m)
 	}
+
+	return nil
 }
 
 // AddToQueue adds a function to add peers to the queue if necessary.
