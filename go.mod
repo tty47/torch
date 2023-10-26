@@ -3,8 +3,10 @@ module github.com/celestiaorg/torch
 go 1.21
 
 require (
+	github.com/adjust/rmq/v5 v5.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/prometheus/client_golang v1.17.0
+	github.com/redis/go-redis/v9 v9.2.1
 	github.com/sirupsen/logrus v1.9.3
 	go.opentelemetry.io/otel v1.19.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.41.0
@@ -17,6 +19,8 @@ require (
 )
 
 require (
+	github.com/alicebob/gopher-json v0.0.0-20230218143504-906a9b012302 // indirect
+	github.com/alicebob/miniredis/v2 v2.30.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -41,10 +45,12 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
-	github.com/redis/go-redis/v9 v9.2.1 // indirect
+	github.com/stretchr/testify v1.8.4 // indirect
+	github.com/yuin/gopher-lua v1.1.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.18.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
