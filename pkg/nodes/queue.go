@@ -45,38 +45,55 @@ func processQueue(ctx context.Context) {
 			// The context has been canceled, exit the loop.
 			return
 		case peer := <-taskQueue:
-			// Perform the operation with "peer"
+			// Perform the operation with the node
 			err := CheckNodesInDBOrCreateThem(peer, red, ctx)
 			if err != nil {
 				log.Error("Error checking the nodes: CheckNodesInDBOrCreateThem - ", err)
 			}
 		}
 	}
-}
-
-// CheckNodesInDBOrCreateThem try to find the node in the DB, if the node is not in the DB, it tries to create it.
+} // CheckNodesInDBOrCreateThem attempts to find the node in the DB; if the node is not in the DB, it attempts to create it.
 func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx context.Context) error {
 	log.Info("Processing Node in the queue: ", "[", peer.NodeName, "]")
-	// check if the node is in the DB
+	// Check if the node is in the DB
 	ma, err := redis.CheckIfNodeExistsInDB(red, ctx, peer.NodeName)
 	if err != nil {
 		log.Error("Error CheckIfNodeExistsInDB for node: [", peer.NodeName, "]", err)
 		return err
 	}
-
-	// if the node doesn't exist in the DB, let's try to create it
+	// If the node doesn't exist in the DB, attempt to generate it in a goroutine
 	if ma == "" {
 		log.Info("Node ", "["+peer.NodeName+"]"+" NOT found in DB, let's try to generate it")
-		ma, err = GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
-		if err != nil {
-			log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", err)
+
+		// Create a channel for errors
+		errCh := make(chan error)
+
+		// Start a goroutine for GenerateNodeIdAndSaveIt
+		go func() {
+			defer close(errCh)
+			var generateErr error // Variable to store the error from GenerateNodeIdAndSaveIt
+			ma, generateErr = GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
+			if generateErr != nil {
+				errCh <- generateErr
+			}
+		}()
+
+		// Wait for the goroutine to finish and check for errors
+		select {
+		case generateErr := <-errCh:
+			if generateErr != nil {
+				log.Error("Error GenerateNodeIdAndSaveIt for full-node: [", peer.NodeName, "]", generateErr)
+				return generateErr
+			}
+		case <-ctx.Done():
+			// Context canceled, return an error or handle it as needed
+			return ctx.Err()
 		}
-		return err
 	}
 
-	// check if the multi address is empty after trying to generate it
+	// Check if the multi-address is empty after attempting to generate it
 	if ma == "" {
-		// check if the node is still under the maximum number of retries
+		// Check if the node is still within the maximum number of retries
 		if peer.RetryCount < MaxRetryCount {
 			log.Info("Node ", "["+peer.NodeName+"]"+" NOT found in DB, adding it to the queue, attempt: ", "[", peer.RetryCount, "]")
 			peer.RetryCount++ // increment the counter
