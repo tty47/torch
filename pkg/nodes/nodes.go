@@ -1,14 +1,10 @@
 package nodes
 
 import (
-	"context"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/jrmanes/torch/config"
-	"github.com/jrmanes/torch/pkg/db/redis"
 	"github.com/jrmanes/torch/pkg/k8s"
-	"github.com/jrmanes/torch/pkg/metrics"
 )
 
 type NodeAddress struct {
@@ -16,10 +12,9 @@ type NodeAddress struct {
 	NodeName string
 }
 
-// ValidateNode checks if an input node is available in the config.
+// ValidateNode checks if a node received is available in the config, meaning that we can proceed to generate it is id.
+// if not, we return an error and an empty node struct.
 func ValidateNode(n string, cfg config.MutualPeersConfig) (bool, config.Peer) {
-	// check if the node received by the request is on the list, if so, we
-	// continue the process
 	for _, mutualPeer := range cfg.MutualPeers {
 		for _, peer := range mutualPeer.Peers {
 			if peer.NodeName == n {
@@ -30,125 +25,6 @@ func ValidateNode(n string, cfg config.MutualPeersConfig) (bool, config.Peer) {
 	}
 
 	return false, config.Peer{}
-}
-
-//// GenerateAllTrustedPeersAddr handles the HTTP request to generate trusted peers' addresses.
-//func GenerateAllTrustedPeersAddr(cfg config.MutualPeersConfig, pod []string) (map[string]string, error) {
-//	// Create a map to store the pod names
-//	podMap := make(map[string]bool)
-//
-//	red := redis.InitRedisConfig()
-//	ctx := context.TODO()
-//
-//	// Add the pod names to the map
-//	for _, p := range pod {
-//		podMap[p] = true
-//	}
-//
-//	var wg sync.WaitGroup
-//
-//	for _, mutualPeer := range cfg.MutualPeers {
-//		for _, peer := range mutualPeer.Peers {
-//			if _, exists := podMap[peer.NodeName]; exists {
-//				wg.Add(1)
-//				go func(peer config.Peer) {
-//					defer wg.Done()
-//
-//					err := GenerateAndRegisterTP(peer, cfg, red, ctx)
-//					if err != nil {
-//						log.Error("Error with GenerateAndRegisterTP: ", err)
-//					}
-//
-//					if peer.NodeType == "da" {
-//						log.Info("Generating config for node:", peer.NodeName)
-//					}
-//				}(peer)
-//			}
-//		}
-//	}
-//
-//	wg.Wait()
-//
-//	keysAndValues, err := red.GetAllKeys(ctx)
-//	if err != nil {
-//		log.Error("Error getting the keys and values: ", err)
-//	}
-//
-//	return keysAndValues, nil
-//}
-
-// GenerateAndRegisterTP generates trusted peers for a specific node and registers metrics.
-//
-// This function generates trusted peers for the specified node based on its type and
-// executes remote commands to obtain the necessary information. It also registers
-// metrics for "da" nodes.
-func GenerateAndRegisterTP(
-	peer config.Peer,
-	cfg config.MutualPeersConfig,
-	r *redis.RedisClient,
-	ctx context.Context,
-) error {
-	nodeId, err := redis.CheckIfNodeExistsInDB(r, ctx, peer.NodeName)
-	if err != nil {
-		log.Error("Error getting the node from db -> CheckIfNodeExistsInDB: ", err)
-		return err
-	}
-
-	if nodeId != "" {
-		log.Info("The node is already in Redis, we don't need to get it again: ", nodeId)
-		return nil
-	}
-
-	err = SetupNodesEnvVarAndConnections(peer, cfg)
-	if err != nil {
-		return err
-	}
-
-	if len(peer.DnsConnections) > 0 {
-		log.Info("The node uses dns connections", peer.DnsConnections)
-		//dnsConn = "/dns/" + strings.TrimSuffix(peer.NodeName, "-0") + "/tcp/2121/p2p/"
-	} else {
-		log.Info("the node use  IP")
-	}
-
-	// Get the command for generating trusted peers
-	command := k8s.CreateTrustedPeerCommand()
-
-	// Execute a remote command on the node
-	output, err := k8s.RunRemoteCommand(
-		peer.NodeName,
-		peer.ContainerName,
-		k8s.GetCurrentNamespace(),
-		command)
-	if err != nil {
-		log.Error("Error executing remote command: ", err)
-		// Handle the error or add it to a shared error channel
-		return err
-	}
-	log.Info("output: ", output)
-
-	// Register the metric only if the node is of type "da"
-	if peer.NodeType == "da" {
-		// save node in db
-		err := redis.SetNodeId(peer.NodeName, r, ctx, output)
-		if err != nil {
-			log.Error("Error SetNodeId: ", err)
-			return err
-		}
-
-		log.Info("Registering metric for node: [", peer.NodeName, "]")
-		// Register a multi-address metric
-		m := metrics.MultiAddrs{
-			ServiceName: "torch",
-			NodeName:    peer.NodeName,
-			MultiAddr:   output,
-			Namespace:   peer.Namespace,
-			Value:       1,
-		}
-		metrics.RegisterMetric(m)
-	}
-
-	return nil
 }
 
 // SetupNodesEnvVarAndConnections configure the ENV vars for those nodes that needs to connect via ENV var
