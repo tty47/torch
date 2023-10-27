@@ -89,9 +89,16 @@ func Run(cfg config.MutualPeersConfig) {
 	defer cancel()
 	go nodes.ProcessTaskQueue(ctxQueue)
 
-	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
 	log.Info("Initializing goroutine to watch over the StatefulSets...")
-	go k8s.WatchStatefulSets()
+	// Initialize a goroutine to watch for changes in StatefulSets in the namespace.
+	go func() {
+		// Call the WatchStatefulSets function and capture any potential error.
+		err := k8s.WatchStatefulSets()
+		if err != nil {
+			// Log an error message if WatchStatefulSets encounters an error.
+			log.Error("Error in WatchStatefulSets: ", err)
+		}
+	}()
 
 	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
 	log.Info("Initializing Redis consumer")
