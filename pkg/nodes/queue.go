@@ -11,45 +11,45 @@ import (
 	"github.com/celestiaorg/torch/pkg/metrics"
 )
 
-var (
-	taskQueue     = make(chan config.Peer) // taskQueue channel for pending tasks (peers to process later).
-	MaxRetryCount = 5                      // MaxRetryCount number of retries per node.
+const (
+	MaxRetryCount = 5               // MaxRetryCount number of retries per node.
+	TickerTime    = 5 * time.Second // TickerTime time specified to make a signal.
 )
 
-// ProcessTaskQueue processes the pending tasks in the queue every 5 seconds.
-func ProcessTaskQueue() {
-	ticker := time.NewTicker(5 * time.Second) // Set the interval to 5 seconds
-	//defer ticker.Stop()                       // Stop the ticker when the function exits
+var (
+	taskQueue = make(chan config.Peer) // taskQueue channel for pending tasks (peers to process later).
+)
+
+// ProcessTaskQueue processes the pending tasks in the queue the time specified in the const TickerTime.
+func ProcessTaskQueue(ctx context.Context) {
+	ticker := time.NewTicker(TickerTime)
 
 	for {
 		select {
+		case <-ctx.Done():
+			// The context has been canceled, exit the loop.
+			return
 		case <-ticker.C:
-			processQueue()
+			processQueue(ctx)
 		}
 	}
 }
 
 // processQueue process the nodes in the queue and tries to generate the Multi Address
-func processQueue() {
+func processQueue(ctx context.Context) {
 	red := redis.InitRedisConfig()
-	// Create a new context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
-
-	// Make sure to call the cancel function to release resources when you're done
-	defer cancel()
 
 	for {
 		select {
+		case <-ctx.Done():
+			// The context has been canceled, exit the loop.
+			return
 		case peer := <-taskQueue:
-			// TODO:
-			// errors should be returned back and go routines needs to be in errGroup instead of pure go
+			// Perform the operation with "peer"
 			err := CheckNodesInDBOrCreateThem(peer, red, ctx)
 			if err != nil {
 				log.Error("Error checking the nodes: CheckNodesInDBOrCreateThem - ", err)
 			}
-
-		default:
-			return
 		}
 	}
 }

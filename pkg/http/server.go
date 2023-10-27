@@ -83,7 +83,11 @@ func Run(cfg config.MutualPeersConfig) {
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
-	go nodes.ProcessTaskQueue()
+	// Create a new context with a timeout
+	ctxQueue, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
+	go nodes.ProcessTaskQueue(ctxQueue)
 
 	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
 	log.Info("Initializing goroutine to watch over the StatefulSets...")
