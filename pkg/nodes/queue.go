@@ -45,7 +45,7 @@ func processQueue(ctx context.Context) {
 			// The context has been canceled, exit the loop.
 			return
 		case peer := <-taskQueue:
-			// Perform the operation with "peer"
+			// Perform the operation with the node
 			err := CheckNodesInDBOrCreateThem(peer, red, ctx)
 			if err != nil {
 				log.Error("Error checking the nodes: CheckNodesInDBOrCreateThem - ", err)
