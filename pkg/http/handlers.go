@@ -221,56 +221,6 @@ func ConfigureNode(
 	}
 }
 
-// comment this endpoint for now.
-//// GenAll generate the list of ids for all the nodes available in the config.
-//func GenAll(w http.ResponseWriter, r *http.Request, cfg config.MutualPeersConfig) {
-//	var body RequestMultipleNodesBody
-//	var resp Response
-//
-//	err := json.NewDecoder(r.Body).Decode(&body)
-//	if err != nil {
-//		log.Error("Error decoding the request body into the struct:", err)
-//		resp := Response{
-//			Status: http.StatusInternalServerError,
-//			Body:   body.Body,
-//			Errors: err,
-//		}
-//		ReturnResponse(resp, w)
-//	}
-//
-//	pod := body.Body
-//	log.Info(pod)
-//
-//	nodeIDs, err := nodes.GenerateAllTrustedPeersAddr(cfg, pod)
-//	if err != nil {
-//		log.Error(errorMsg, err)
-//		// resp -> generate the response with the error
-//		resp := Response{
-//			Status: http.StatusInternalServerError,
-//			Body:   pod,
-//			Errors: err,
-//		}
-//		ReturnResponse(resp, w)
-//	}
-//
-//	// remove if the ids is empty
-//	for nodeName, id := range nodeIDs {
-//		log.Info("node from redis:", nodeName, " ", id)
-//		if id == "" {
-//			// if the id is empty, we remove it from the map
-//			delete(nodeIDs, nodeName)
-//		}
-//	}
-//
-//	// resp -> generate the response
-//	resp = Response{
-//		Status: http.StatusOK,
-//		Body:   nodeIDs,
-//		Errors: nil,
-//	}
-//	ReturnResponse(resp, w)
-//}
-
 // ReturnResponse assert function to write the response.
 func ReturnResponse(resp Response, w http.ResponseWriter) {
 	jsonData, err := json.Marshal(resp)
