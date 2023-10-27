@@ -52,7 +52,9 @@ func processQueue(ctx context.Context) {
 			}
 		}
 	}
-} // CheckNodesInDBOrCreateThem attempts to find the node in the DB; if the node is not in the DB, it attempts to create it.
+}
+
+// CheckNodesInDBOrCreateThem attempts to find the node in the DB; if the node is not in the DB, it attempts to create it.
 func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx context.Context) error {
 	log.Info("Processing Node in the queue: ", "[", peer.NodeName, "]")
 	// Check if the node is in the DB
@@ -71,7 +73,7 @@ func CheckNodesInDBOrCreateThem(peer config.Peer, red *redis.RedisClient, ctx co
 		// Start a goroutine for GenerateNodeIdAndSaveIt
 		go func() {
 			defer close(errCh)
-			var generateErr error // Variable to store the error from GenerateNodeIdAndSaveIt
+			var generateErr error
 			ma, generateErr = GenerateNodeIdAndSaveIt(peer, peer.NodeName, red, ctx)
 			if generateErr != nil {
 				errCh <- generateErr
