@@ -18,6 +18,7 @@ import (
 const (
 	errRemoteCommand = "Error executing remote command: "
 	timeoutDuration  = 30 * time.Second // timeoutDuration we specify the max time to run the func.
+	nodeIdMaxLength  = 52               // nodeIdMaxLength Specify the max length for the nodes ids.
 )
 
 var (
@@ -187,8 +188,18 @@ func GenerateNodeIdAndSaveIt(
 		return "", err
 	}
 
+	// if the output of the generation is not empty, that means that we could generate the node id successfully, so let's
+	// store it into the DB.
 	if output != "" {
 		log.Info("Adding pod id to Redis: ", connNode, " [", output, "] ")
+
+		// check that the node id generate has the right length
+		output, err = TruncateString(output, nodeIdMaxLength)
+		if err != nil {
+			log.Error("Error TruncateString: ", err)
+			return "", err
+		}
+
 		// save node in redis
 		err = redis.SetNodeId(connNode, red, ctx, output)
 		if err != nil {
@@ -201,4 +212,19 @@ func GenerateNodeIdAndSaveIt(
 	}
 
 	return output, nil
+}
+
+// TruncateString receives and input and a maxLength and returns a string with the size specified.
+func TruncateString(input string, maxLength int) (string, error) {
+	if len(input) == maxLength {
+		return input, nil
+	}
+	if len(input) < maxLength {
+		log.Error("Error: The node id received is not valid, too short: , ", " - [", len(input), "]", " - [", input, "]")
+		return input, errors.New("error: The node id received is not valid")
+	}
+
+	log.Info("input: ", input)
+
+	return input[:maxLength], nil
 }

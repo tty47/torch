@@ -152,3 +152,59 @@ func TestSetDaNodeDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncateString(t *testing.T) {
+	type args struct {
+		input     string
+		maxLength int
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "Case 1: Tests valid node ID: 12D3KooWPB3thXCYyr6Jid49d5DDaRL63inzVagaQswCcgUARg5W - 52",
+			args: args{
+				input:     "12D3KooWPB3thXCYyr6Jid49d5DDaRL63inzVagaQswCcgUARg5W",
+				maxLength: 52,
+			},
+			want: "12D3KooWPB3thXCYyr6Jid49d5DDaRL63inzVagaQswCcgUARg5W",
+		},
+		{
+			name: "Case 2: Tests not valid node ID.",
+			args: args{
+				input:     "12D3KooWPB3thXCYyr6Jid49d5DDaRL63inzVagaQswCcgUARg5W12D3KooWPB3thXCYyr6Jid49d5DDaRL63inzVagaQswCcgUARg5W",
+				maxLength: 52,
+			},
+			want: "12D3KooWPB3thXCYyr6Jid49d5DDaRL63inzVagaQswCcgUARg5W",
+		},
+		{
+			name: "Case 3: Tests valid node ID: 12D3KooWMGSh8pLvQYn5zYcdRhVfNAcMZrDt71iyq6eSVtrgjKb8 - 52",
+			args: args{
+				input:     "12D3KooWMGSh8pLvQYn5zYcdRhVfNAcMZrDt71iyq6eSVtrgjKb8",
+				maxLength: 52,
+			},
+			want: "12D3KooWMGSh8pLvQYn5zYcdRhVfNAcMZrDt71iyq6eSVtrgjKb8",
+		},
+		{
+			name: "Case 4: Tests not valid node ID.",
+			args: args{
+				input:     "12D3KooWMGSh8pLvQYn5zYcdRhVfNAcMZrDt71iyq6eSVtrgjKb812D3KooWMGSh8pLvQYn5zYcdRhVfNAcMZrDt71iyq6eSVtrgjKb8",
+				maxLength: 52,
+			},
+			want: "12D3KooWMGSh8pLvQYn5zYcdRhVfNAcMZrDt71iyq6eSVtrgjKb8",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, err := TruncateString(tt.args.input, tt.args.maxLength); got != tt.want {
+				if err != nil {
+					t.Errorf("ERROR: TruncateString() = %v, want %v", got, tt.want)
+				}
+				t.Errorf("TruncateString() = %v, want %v", got, tt.want)
+
+			}
+		})
+	}
+}
