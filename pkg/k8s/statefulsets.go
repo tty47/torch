@@ -16,28 +16,28 @@ import (
 const queueK8SNodes = "k8s"
 
 // WatchStatefulSets watches for changes to the StatefulSets in the specified namespace and updates the metrics accordingly
-func WatchStatefulSets() {
+func WatchStatefulSets() error {
 	// namespace get the current namespace where torch is running
 	namespace := GetCurrentNamespace()
 	// Authentication in cluster - using Service Account, Role, RoleBinding
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		log.Fatal(err)
-		return
+		log.Error("Error: ", err)
+		return err
 	}
 
 	// Create the Kubernetes clientSet
 	clientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		log.Fatal(err)
-		return
+		log.Error("Error: ", err)
+		return err
 	}
 
 	// Create a StatefulSet watcher
 	watcher, err := clientSet.AppsV1().StatefulSets(namespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		log.Fatal(err)
-		return
+		log.Error("Error: ", err)
+		return err
 	}
 
 	// Watch for events on the watcher channel
@@ -50,8 +50,11 @@ func WatchStatefulSets() {
 				err := redis.Producer(statefulSet.Name, queueK8SNodes)
 				if err != nil {
 					log.Error("ERROR adding the node to the queue: ", err)
+					return err
 				}
 			}
 		}
 	}
+
+	return nil
 }
