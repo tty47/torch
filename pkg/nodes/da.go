@@ -17,7 +17,7 @@ import (
 
 const (
 	errRemoteCommand = "Error executing remote command: "
-	timeoutDuration  = 30 * time.Second // timeoutDuration we specify the max time to run the func.
+	timeoutDuration  = 60 * time.Second // timeoutDuration we specify the max time to run the func.
 	nodeIdMaxLength  = 52               // nodeIdMaxLength Specify the max length for the nodes ids.
 )
 
@@ -224,7 +224,7 @@ func TruncateString(input string, maxLength int) (string, error) {
 		return input, errors.New("error: The node id received is not valid")
 	}
 
-	log.Info("input: ", input)
+	log.Info("Node ID with bigger size found: ", input)
 
 	return input[:maxLength], nil
 }

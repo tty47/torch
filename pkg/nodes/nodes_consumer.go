@@ -18,7 +18,7 @@ const (
 	consumerName            = "torch-consumer" // consumerName name used in the tag to identify the consumer.
 	prefetchLimit           = 10               // prefetchLimit
 	pollDuration            = 10 * time.Second // pollDuration how often is Torch going to pull data from the queue.
-	timeoutDurationConsumer = 30 * time.Second // timeoutDurationConsumer timeout for the consumer.
+	timeoutDurationConsumer = 60 * time.Second // timeoutDurationConsumer timeout for the consumer.
 )
 
 // ConsumerInit initialize the process to check the queues in Redis.
