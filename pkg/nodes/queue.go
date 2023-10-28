@@ -15,7 +15,7 @@ var (
 	taskQueue                   = make(chan config.Peer) // taskQueue channel for pending tasks (peers to process later).
 	MaxRetryCount               = 5                      // MaxRetryCount number of retries per node.
 	TickerTime                  = 5 * time.Second        // TickerTime time specified to make a signal.
-	timeoutDurationProcessQueue = 10 * time.Second       // timeoutDurationProcessQueue time specified to make a signal.
+	timeoutDurationProcessQueue = 60 * time.Second       // timeoutDurationProcessQueue time specified to make a signal.
 )
 
 // ProcessTaskQueue processes the pending tasks in the queue the time specified in the const TickerTime.
