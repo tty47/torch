@@ -83,19 +83,28 @@ func Run(cfg config.MutualPeersConfig) {
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
-	// Create a new context with a timeout
-	ctxQueue, cancel := context.WithTimeout(context.Background(), timeoutDuration)
-	// Make sure to call the cancel function to release resources when you're done
-	defer cancel()
-	go nodes.ProcessTaskQueue(ctxQueue)
+	// Create a new context without timeout as we want to keep this goroutine running forever, if we specify a timeout,
+	// it will be canceled at some point.c
+	go func() {
+		go nodes.ProcessTaskQueue()
+	}()
 
-	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
 	log.Info("Initializing goroutine to watch over the StatefulSets...")
-	go k8s.WatchStatefulSets()
+	// Initialize a goroutine to watch for changes in StatefulSets in the namespace.
+	go func() {
+		// Call the WatchStatefulSets function and capture any potential error.
+		err := k8s.WatchStatefulSets()
+		if err != nil {
+			// Log an error message if WatchStatefulSets encounters an error.
+			log.Error("Error in WatchStatefulSets: ", err)
+		}
+	}()
 
 	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
 	log.Info("Initializing Redis consumer")
-	go nodes.ConsumerInit("k8s")
+	go func() {
+		nodes.ConsumerInit("k8s")
+	}()
 
 	// Check if we already have some multi addresses in the DB and expose them, there might be a situation where Torch
 	// get restarted, and we already have the nodes IDs, so we can expose them.
