@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	prefetchLimit = 10               // prefetchLimit
-	pollDuration  = 10 * time.Second // pollDuration how often is Torch going to pull data from the queue.
-	consumerName  = "torch-consumer" // consumerName name used in the tag to identify the consumer.
+	consumerName            = "torch-consumer" // consumerName name used in the tag to identify the consumer.
+	prefetchLimit           = 10               // prefetchLimit
+	pollDuration            = 10 * time.Second // pollDuration how often is Torch going to pull data from the queue.
+	timeoutDurationConsumer = 60 * time.Second // timeoutDurationConsumer timeout for the consumer.
 )
 
 // ConsumerInit initialize the process to check the queues in Redis.
@@ -27,7 +28,7 @@ func ConsumerInit(queueName string) {
 
 	red := redis.InitRedisConfig()
 	// Create a new context with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDurationConsumer)
 
 	// Make sure to call the cancel function to release resources when you're done
 	defer cancel()
@@ -55,8 +56,9 @@ func ConsumerInit(queueName string) {
 	_, err = queue.AddConsumerFunc(consumerName, func(delivery rmq.Delivery) {
 		log.Info("Performing task: ", delivery.Payload())
 		peer := config.Peer{
-			NodeName: delivery.Payload(),
-			NodeType: "da",
+			NodeName:      delivery.Payload(),
+			NodeType:      "da",
+			ContainerName: "da",
 		}
 
 		// here we wil send the node to generate the id
