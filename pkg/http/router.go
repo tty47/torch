@@ -3,26 +3,38 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/jrmanes/torch/config"
-
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/celestiaorg/torch/config"
 )
 
 func Router(r *mux.Router, cfg config.MutualPeersConfig) *mux.Router {
 	r.Use(LogRequest)
-	r.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		GetConfig(w, r, cfg)
+
+	// group the current version to /api/v1
+	s := r.PathPrefix("/api/v1").Subrouter()
+
+	// get config
+	s.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+		GetConfig(w, cfg)
 	}).Methods("GET")
-	r.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
-		List(w, r, cfg)
+
+	// get nodes
+	s.HandleFunc("/list", func(w http.ResponseWriter, r *http.Request) {
+		List(w)
 	}).Methods("GET")
-	r.HandleFunc("/gen", func(w http.ResponseWriter, r *http.Request) {
+	// get node details by node name
+	s.HandleFunc("/noId/{nodeName}", func(w http.ResponseWriter, r *http.Request) {
+		GetNoId(w, r, cfg)
+	}).Methods("GET")
+
+	// generate
+	s.HandleFunc("/gen", func(w http.ResponseWriter, r *http.Request) {
 		Gen(w, r, cfg)
 	}).Methods("POST")
-	r.HandleFunc("/genAll", func(w http.ResponseWriter, r *http.Request) {
-		GenAll(w, r, cfg)
-	}).Methods("POST")
+
+	// metrics
 	r.Handle("/metrics", promhttp.Handler())
 
 	return r

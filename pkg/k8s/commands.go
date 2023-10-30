@@ -1,84 +1,71 @@
 package k8s
 
 import (
-	"fmt"
+	"bytes"
 
-	"github.com/jrmanes/torch/config"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
-var (
-	trustedPeerFile   = "/tmp/TP-ADDR"
-	trustedPeers      = "/tmp/"
-	cmd               = `$(ifconfig | grep -oE 'inet addr:([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)' | grep -v '127.0.0.1' | awk '{print substr($2, 6)}')`
-	trustedPeerPrefix = "/ip4/" + cmd + "/tcp/2121/p2p/"
-)
-
-// GetTrustedPeersPath get the peers path from config or return the default value
-func GetTrustedPeersPath(cfg config.MutualPeer) string {
-	// if not defined in the config, return the default value
-	if cfg.TrustedPeersPath == "" {
-		return trustedPeers
+// RunRemoteCommand executes a remote command on the specified node.
+func RunRemoteCommand(nodeName, container, namespace string, command []string) (string, error) {
+	clusterConfig, err := rest.InClusterConfig()
+	if err != nil {
+		log.Error("Error: ", err.Error())
+	}
+	// creates the client
+	client, err := kubernetes.NewForConfig(clusterConfig)
+	if err != nil {
+		log.Fatalf("Error: %v", err.Error())
 	}
 
-	return cfg.TrustedPeersPath
+	// Create a request to execute the command on the specified node.
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(nodeName).
+		Namespace(namespace).
+		SubResource("exec").
+		VersionedParams(&v1.PodExecOptions{
+			Command:   command,
+			Container: container,
+			Stdin:     false,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
+
+	// Execute the remote command.
+	output, err := executeCommand(clusterConfig, req)
+	if err != nil {
+		log.Error("failed to execute remote command: ", err)
+	}
+
+	return output, nil
 }
 
-// GetTrustedPeerCommand generates the command for retrieving trusted peer information.
-func GetTrustedPeerCommand() []string {
-	script := fmt.Sprintf(`#!/bin/sh
-# add the prefix to the addr
-if [ -f "%[1]s" ];then
-  cat "%[1]s"
-fi`, trustedPeerFile)
+// executeCommand executes the remote command using the provided configuration, request, and output writer.
+func executeCommand(config *rest.Config, req *rest.Request) (string, error) {
+	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		log.Error("failed to create SPDY executor: ", err)
+	}
 
-	return []string{"sh", "-c", script}
-}
+	// Prepare the standard I/O streams.
+	var stdout, stderr bytes.Buffer
 
-// CreateTrustedPeerCommand generates the command for creating trusted peers.
-// we have to use the shell script because we can only get the token and the
-// nodeID from the node itself
-func CreateTrustedPeerCommand() []string {
-	script := fmt.Sprintf(`#!/bin/sh
-if [ -f "%[1]s" ];then
-  cat "%[1]s"
-else
- # add the prefix to the addr
-  echo -n "%[2]s" > "%[1]s"
+	// Execute the remote command and capture the output.
+	err = executor.Stream(remotecommand.StreamOptions{
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+	if err != nil {
+		log.Error("failed to execute command stream: ", err)
+	}
 
-  # generate the token
-  export AUTHTOKEN=$(celestia bridge auth admin --node.store /home/celestia)
-
-  # remove the first warning line...
-  export AUTHTOKEN=$(echo $AUTHTOKEN|rev|cut -d' ' -f1|rev)
-
-  # make the request and parse the response
-  TP_ADDR=$(wget --header="Authorization: Bearer $AUTHTOKEN" \
-       --header="Content-Type: application/json" \
-       --post-data='{"jsonrpc":"2.0","id":0,"method":"p2p.Info","params":[]}' \
-       --output-document - \
-       http://localhost:26658 | grep -o '"ID":"[^"]*"' | sed 's/"ID":"\([^"]*\)"/\1/')
-  
-  echo -n "${TP_ADDR}" >> "%[1]s"
-  cat "%[1]s"
-fi`, trustedPeerFile, trustedPeerPrefix)
-
-	return []string{"sh", "-c", script}
-}
-
-// BulkTrustedPeerCommand generates the peers content in the files
-func BulkTrustedPeerCommand(tp string, cfg config.MutualPeer) []string {
-	// Get the path to write
-	trustedPeers = GetTrustedPeersPath(cfg)
-
-	script := fmt.Sprintf(`#!/bin/sh
-# create the folder if doesnt exists
-mkdir -p "%[3]s"
-
-if [ ! -f "%[3]s" ];then
-  cp "%[2]s" "%[3]s/TRUSTED_PEERS"
-fi
-# Generate Trusteed Peers only if they are not in the file
-grep -qF "%[1]s" "%[3]s/TRUSTED_PEERS" || echo ",%[1]s" >> "%[3]s/TRUSTED_PEERS"
-`, tp, trustedPeerFile, trustedPeers)
-	return []string{"sh", "-c", script}
+	return stdout.String(), nil
 }

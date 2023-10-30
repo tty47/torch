@@ -2,56 +2,91 @@
 
 ## Description
 
-Torch is the **Trusted Peers Orchestrator**.
+**Torch** is the ***Trusted Peers Orchestrator***.
 
 This service was created with the idea to manage [Celestia Nodes](https://github.com/celestiaorg/celestia-node/) automatically.
 
-By default, when you run some Bridge Nodes and Full Nodes, you have to specify in the Full Node the Bridge's multiaddress, this service does it automatically for you.
+You can use Torch to manage the nodes connections from a config file and Torch will manage those nodes for you.
 
-Torch access to the nodes defined in the config file and get's their multiaddress, then, it writes it to the specified path and shares the info with all the other peers defined.
+Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses information and stores them in a Redis instance, also, it provides some metrics to expose the node's IDs through the `/metrics` endpoint.
 
 ---
 
-## Flow
+## Workflow
 
-Nodes side:
-- Nodes check their `ENV` var during the start-up process
-- If they don't have the value yet, they ask to Torch for it.
-  - They send a request to the service asking for the value -> phase-2
-  - If the service already has the addresses, return them, otherwise, check the nodes.
-- We store the value in the config PVC in a file, to keep it there even if we restart the pod or update it, and we 
-will source the value with the `start.sh`
+![Torch Flow](./docs/assets/torch.png)
 
+When Torch receives a new request to the path `/api/v1/gen` with the node name in the body, it will verify if the node received is in the config file, if so, it will start the process, otherwise, it will reject it.
 
-1) Torch checks the peers based on the config file, the scope is in its namespace.
-  - How does it work?
-    - Torch receives a request with the nodeName in the body, then, checks the config (to validate it) and
-      opens a connection to them.
-    - checks the multiaddr, and stores it in memory
-    - once it has the addresses, it creates a file in the config PVC with the TRUSTED_PEERS value (the path can be defined in the config)
-2) Then, it restarts the nodes until all of the peers have the env var available.
+There are two types of connections:
 
+- Using `ENV Vars`: Torch gets the data from the config file and write the connection to the node, using the `containerSetupName` to access to the node and write to a file.
+  - If the value of the key `nodeType` is `da`. Torch will try to generate the node ID once the node it will be ready to accept connections (*`containerName` will be up & running*).
+- Connection via `Multi Address`: The user can specify the `connectsTo` list of a node, that means the node will have one or more connections.
+  - You can either use the node name like:
+
+  ```yaml
+  connectsTo:
+    - "da-bridge-1-0"
+    - "da-bridge-2-0"
+  ```
+
+  - or you can specify the full multi address:
+
+  ```yaml
+  connectsTo:
+    - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWNFpkX9fuo3GQ38FaVKdAZcTQsLr1BNE5DTHGjv2fjEHG"
+    - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWL8cqu7dFyodQNLWgJLuCzsQiv617SN9WDVX2GiZnjmeE"
+  ```
+
+  - If you want to generate the Multi address, you can either use the DNS or IP, to use dns, you will have to add the key `dnsConnections` and Torch will try to connect to this node, in the other hand, if you want to use IPs, just remove this key.
+  - Example:
+
+  ```yaml
+  # This will use IP to connect to da-bridge-1-0
+    - peers:
+      - nodeName: "da-full-1-0"
+        nodeType: "da"
+        connectsTo:
+          - "da-bridge-1-0"
+  # This will use DNS to connect to da-bridge-1-0 & da-bridge-2-0 
+    - peers:
+      - nodeName: "da-full-2-0"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+          - "da-bridge-2"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+  ```
 
 ---
 
 ## API Paths
 
-- `/config`
-  - **Method**: `GET` 
-  - **Description**: returns the config added by the user, can be used to debug
-- `/list`
+- `/api/v1/config`
   - **Method**: `GET`
-  - **Description**: returns the list of the pods available in it's namespace based on the config file
-- `/gen` 
+  - **Description**: Returns the config added by the user, can be used to debug
+- `/api/v1/list`
+  - **Method**: `GET`
+  - **Description**: Returns the list of the pods available in it's namespace based on the config file
+- `/api/v1/noId/<nodeName>`
+  - **Method**: `GET`
+  - **Description**: Returns the multi address of the node requested.
+- `/api/v1/gen`
   - **Method**: `POST`
-  - **Description**: starts the process to generate the trusted peers on the nodes based on the config
-  - **Body Example**: 
+  - **Description**: Starts the process to generate the trusted peers on the nodes based on the config
+  - **Body Example**:
+
     ```json
     {
         "podName": "da-bridge-1"
     }
     ```
+
   - **Response Example**:
+
     ```json
     {
         "status": 200,
@@ -60,51 +95,154 @@ will source the value with the `start.sh`
         }
     }
     ```
-- `/genAll`
-  - **Method**: `POST`
-  - **Description**: generate the config for all the peers in the config file
-  - **Body Example**:
-    ```json
-    {
-        "podName": 
-        [
-            "da-bridge-1",
-            "da-full-1"
-        ]
-    }
-    ```
-  - **Response Example**:
-    ```json
-    {
-        "status": 200,
-        "body": {
-            "da-bridge-0": "/dns/da-bridge-0/tcp/2121/p2p/12D3KooWDMuPiHgnB6xwnpaR4cgyAdbB5aN9zwoZCATgGxnrpk1M",
-            "da-full-0": "/dns/da-full-0/tcp/2121/p2p/12D3KooWDCUaPA5ZQveFfsuAHHBNiAhEERo5J1YfbqwSZKtn9RrD"
-        }
-    }
-    ```
+
+- `/metrics`
+  - **Method**: `GET`
+  - **Description**: Prometheus metrics endpoint.
+
 ---
 
-## How does it work?
+## Config Example
 
 Here is an example of the flow, using the config:
 
 ```yaml
+---
 mutualPeers:
+  - consensusNode: "consensus-validator-1"
   - peers:
-    - nodeName: "da-bridge-1"
-      containerName: "da"
-    - nodeName: "da-full-1"
-      containerName: "da"
-    trustedPeersPath: "/tmp"
+      - nodeName: "consensus-full-1-0"
+        containerName: "consensus" # optional - default: consensus
+        containerSetupName: "consensus-setup" # optional - default: consensus-setup
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
   - peers:
-    - nodeName: "da-bridge-2"
-      containerName: "da"
-    - nodeName: "da-full-2"
-      containerName: "da"
+      - nodeName: "consensus-full-2-0"
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
+      - nodeName: "da-bridge-1-0"
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-1"
+  - peers:
+      - nodeName: "da-bridge-2-0"
+        containerName: "da" # optional - default: da
+        containerSetupName: "da-setup" # optional - default: da-setup
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-2"
+  - peers:
+      - nodeName: "da-bridge-3-0"
+        containerName: "da"
+        nodeType: "da"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+  - peers:
+      - nodeName: "da-full-1-0"
+        containerName: "da"
+        containerSetupName: "da-setup"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+          - "da-bridge-2"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+  - peers:
+      - nodeName: "da-full-2-0"
+        containerName: "da"
+        containerSetupName: "da-setup"
+        nodeType: "da"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+  - peers:
+      - nodeName: "da-full-3-0"
+        nodeType: "da"
+        connectsTo:
+          # all the nodes in line using IP
+          - "/ip4/100.64.5.103/tcp/2121/p2p/12D3KooWNFpkX9fuo3GQ38FaVKdAZcTQsLr1BNE5DTHGjv2fjEHG,/ip4/100.64.5.15/tcp/2121/p2p/12D3KooWL8cqu7dFyodQNLWgJLuCzsQiv617SN9WDVX2GiZnjmeE"
+          # all the nodes in line using DNS
+          - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWKsHCeUVJqJwymyi3bGt1Gwbn5uUUFi2N9WQ7G6rUSXig,/dns/da-bridge-2/tcp/2121/p2p/12D3KooWA26WDUmejZzU6XHc4C7KQNSWaEApe5BEyXFNchAqrxhA"
+          # one node per line, either IP or DNS
+          - "/dns/da-bridge-1/tcp/2121/p2p/12D3KooWKsHCeUVJqJwymyi3bGt1Gwbn5uUUFi2N9WQ7G6rUSXig"
+          - "/dns/da-bridge-2/tcp/2121/p2p/12D3KooWA26WDUmejZzU6XHc4C7KQNSWaEApe5BEyXFNchAqrxhA"
     trustedPeersPath: "/tmp"
 ```
 
-![Torch Flow](./docs/assets/torch.png)
+### Another example
+
+The architecture will contain:
+
+- 1 Consensus - Validator
+- 2 Consensus - non-validating mode - connected to the validator
+- 1 DA-Bridge-1 - connected to the CONS-NON-VALIDATOR
+- 1 DA-Bridge-2 - connected to the CONS-NON-VALIDATOR
+- 1 DA-Full-Node-1 - connected to DA-BN-1
+- 1 DA-Full-Node-2 - connected to DA-BN-1 & DA-BN-2 using DNS
+
+```yaml
+---
+mutualPeers:
+  - consensusNode: "consensus-validator-1"
+  - peers:
+      - nodeName: "consensus-full-1-0"
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
+      - nodeName: "consensus-full-2-0"
+        connectsAsEnvVar: true
+        nodeType: "consensus"
+        connectsTo:
+          - "consensus-validator-1"
+  - peers:
+      - nodeName: "da-bridge-1-0"
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-1"
+  - peers:
+      - nodeName: "da-bridge-2-0"
+        connectsAsEnvVar: true
+        nodeType: "da"
+        connectsTo:
+          - "consensus-full-2"
+  - peers:
+      - nodeName: "da-full-1-0"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+        connectsTo:
+          - "da-bridge-1-0"
+  - peers:
+      - nodeName: "da-full-2-0"
+        nodeType: "da"
+        dnsConnections:
+          - "da-bridge-1"
+          - "da-bridge-2"
+        connectsTo:
+          - "da-bridge-1-0"
+          - "da-bridge-2-0"
+```
+
+## Requirements
+
+### Redis
+
+Torch uses [Redis](https://redis.io/) as a DB, so to use Torch, you need to have a Redis instance available to connect.
+
+We are using Redis in two different ways:
+- Store the Nodes IDs and reuse them.
+- As a message broker, where Torch uses Producer & Consumer approach to process data async.
 
 ---

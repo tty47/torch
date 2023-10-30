@@ -2,11 +2,9 @@ package metrics
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -15,19 +13,19 @@ import (
 // Get the meter from the global meter provider with the name "torch".
 var meter = otel.GetMeterProvider().Meter("torch")
 
-// MultiAddrs represents the information for a multiaddress.
+// MultiAddrs represents the information for a Multi Addresses.
 type MultiAddrs struct {
-	ServiceName string  // ServiceName Name of the service associated with the multiaddress.
+	ServiceName string  // ServiceName Name of the service associated with the Multi Addresses.
 	NodeName    string  // NodeName Name of the node.
-	MultiAddr   string  // MultiAddr Multiaddress value.
+	MultiAddr   string  // MultiAddr Multi Addresses value.
 	Namespace   string  // Namespace where the service is deployed.
-	Value       float64 // Value to be observed for the multiaddress.
+	Value       float64 // Value to be observed for the Multi Addresses.
 }
 
-// WithMetricsMultiAddress creates a callback function to observe metrics for multiple multiaddresses.
+// WithMetricsMultiAddress creates a callback function to observe metrics for multiple Multi Addresses.
 func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 	log.Info("registering metric: ", multiAddrs)
-	// Create a Float64ObservableGauge named "multiaddress" with a description for the metric.
+	// Create a Float64ObservableGauge named "Multi Addresses" with a description for the metric.
 	multiAddressesGauge, err := meter.Float64ObservableGauge(
 		"multiaddr",
 		metric.WithDescription("Torch - MultiAddresses"),
@@ -40,14 +38,14 @@ func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 	// Define the callback function that will be called periodically to observe metrics.
 	callback := func(ctx context.Context, observer metric.Observer) error {
 		for _, ma := range multiAddrs {
-			// Create labels with attributes for each multiaddress.
+			// Create labels with attributes for each Multi Addresses.
 			labels := metric.WithAttributes(
 				attribute.String("service_name", ma.ServiceName),
 				attribute.String("node_name", ma.NodeName),
 				attribute.String("multiaddress", ma.MultiAddr),
 				attribute.String("namespace", ma.Namespace),
 			)
-			// Observe the float64 value for the current multiaddress with the associated labels.
+			// Observe the float64 value for the current Multi Addresses with the associated labels.
 			observer.ObserveFloat64(multiAddressesGauge, ma.Value, labels)
 		}
 
@@ -61,9 +59,9 @@ func WithMetricsMultiAddress(multiAddrs []MultiAddrs) error {
 
 // BlockHeight represents the information for the block height 1.
 type BlockHeight struct {
-	ServiceName string  // ServiceName Name of the service associated with the multiaddress.
-	BlockHeight string  // Namespace where the service is deployed.
-	Value       float64 // Value to be observed for the multiaddress.
+	ServiceName string  // ServiceName Name of the service associated with the multi-address.
+	BlockHeight string  // BlockHeight height of the block.
+	Value       float64 // Value to be observed for the multi-address.
 }
 
 // WithMetricsBlockHeight creates a callback function to observe metrics for block_height_1.
@@ -100,11 +98,12 @@ func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespa
 	return err
 }
 
+// CalculateDaysDifference based on the date received, returns the number of days since this day.
 func CalculateDaysDifference(inputTimeString string) int {
 	layout := "2006-01-02T15:04:05.999999999Z"
 	inputTime, err := time.Parse(layout, inputTimeString)
 	if err != nil {
-		fmt.Println("Error parsing time:", err)
+		log.Error("Error parsing time: [", inputTimeString, "]", err)
 		return -1
 	}
 

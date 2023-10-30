@@ -9,12 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jrmanes/torch/config"
-	"github.com/jrmanes/torch/pkg/k8s"
-	"github.com/jrmanes/torch/pkg/metrics"
-
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/celestiaorg/torch/config"
+	"github.com/celestiaorg/torch/pkg/db/redis"
+	"github.com/celestiaorg/torch/pkg/k8s"
+	"github.com/celestiaorg/torch/pkg/metrics"
+	"github.com/celestiaorg/torch/pkg/nodes"
 )
 
 // GetHttpPort GetPort retrieves the namespace where the service will be deployed
@@ -28,7 +30,7 @@ func GetHttpPort() string {
 	// Ensure that the provided port is a valid numeric value
 	_, err := strconv.Atoi(port)
 	if err != nil {
-		log.Error("Invalid HTTP_PORT value: %v. Using default port 8080")
+		log.Error("Invalid HTTP_PORT [", os.Getenv("HTTP_PORT"), "] ,using default port 8080")
 		return "8080"
 	}
 
@@ -55,27 +57,11 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
-	// Register Metrics - Initialize them
-	err = RegisterMetrics(cfg)
-	if err != nil {
-		log.Errorf("Error registering metrics: %v", err)
+	// generate the metric from the Genesis Hash data
+	notOk := GenerateHashMetrics(cfg, err)
+	if notOk {
+		log.Error("Error registering metric block_height_1")
 		return
-	}
-
-	// Get the genesisHash
-	// check if the config has the consensusNode field defined
-	if cfg.MutualPeers[0].ConsensusNode != "" {
-		blockHash, earliestBlockTime := k8s.GenesisHash(cfg)
-		err = metrics.WithMetricsBlockHeight(
-			blockHash,
-			earliestBlockTime,
-			cfg.MutualPeers[0].ConsensusNode,
-			os.Getenv("POD_NAMESPACE"),
-		)
-		if err != nil {
-			log.Errorf("Error registering metric block_height_1: %v", err)
-			return
-		}
 	}
 
 	// Create the server
@@ -95,6 +81,38 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
 
+	// Initialize the goroutine to check the nodes in the queue.
+	log.Info("Initializing queues to process the nodes...")
+	// Create a new context without timeout as we want to keep this goroutine running forever, if we specify a timeout,
+	// it will be canceled at some point.c
+	go func() {
+		go nodes.ProcessTaskQueue()
+	}()
+
+	log.Info("Initializing goroutine to watch over the StatefulSets...")
+	// Initialize a goroutine to watch for changes in StatefulSets in the namespace.
+	go func() {
+		// Call the WatchStatefulSets function and capture any potential error.
+		err := k8s.WatchStatefulSets()
+		if err != nil {
+			// Log an error message if WatchStatefulSets encounters an error.
+			log.Error("Error in WatchStatefulSets: ", err)
+		}
+	}()
+
+	// Initialize the goroutine to add a watcher to the StatefulSets in the namespace.
+	log.Info("Initializing Redis consumer")
+	go func() {
+		nodes.ConsumerInit("k8s")
+	}()
+
+	// Check if we already have some multi addresses in the DB and expose them, there might be a situation where Torch
+	// get restarted, and we already have the nodes IDs, so we can expose them.
+	err = RegisterMetrics(cfg)
+	if err != nil {
+		log.Error("Couldn't generate the metrics...", err)
+	}
+
 	<-done
 	log.Info("Server Stopped")
 
@@ -109,24 +127,61 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Exited Properly")
 }
 
-// RegisterMetrics generates and registers the metrics for all nodes in the configuration.
-func RegisterMetrics(cfg config.MutualPeersConfig) error {
-	log.Info("Generating initial metrics for all the nodes...")
+func GenerateHashMetrics(cfg config.MutualPeersConfig, err error) bool {
+	// Get the genesisHash
+	// check if the config has the consensusNode field defined
+	if cfg.MutualPeers[0].ConsensusNode != "" {
+		blockHash, earliestBlockTime := nodes.GenesisHash(cfg)
+		err = metrics.WithMetricsBlockHeight(
+			blockHash,
+			earliestBlockTime,
+			cfg.MutualPeers[0].ConsensusNode,
+			os.Getenv("POD_NAMESPACE"),
+		)
+		if err != nil {
+			log.Errorf("Error registering metric block_height_1: %v", err)
+			return true
+		}
+	}
+	return false
+}
 
-	var nodeNames []string
+// RegisterMetrics generates and registers the metrics for all nodes in case they already exist in the DB.
+func RegisterMetrics(cfg config.MutualPeersConfig) error {
+	red := redis.InitRedisConfig()
+	// Create a new context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+
+	// Make sure to call the cancel function to release resources when you're done
+	defer cancel()
+
+	log.Info("Generating metrics from existing nodes...")
 
 	// Adding nodes from config to register the initial metrics
 	for _, n := range cfg.MutualPeers {
 		for _, no := range n.Peers {
-			nodeNames = append(nodeNames, no.NodeName)
-		}
-	}
+			// checking the node in the DB first
+			ma, err := redis.CheckIfNodeExistsInDB(red, ctx, no.NodeName)
+			if err != nil {
+				log.Error("Error CheckIfNodeExistsInDB : [", no.NodeName, "]", err)
+				return err
+			}
 
-	// Generate the metrics for all nodes
-	_, err := k8s.GenerateAllTrustedPeersAddr(cfg, nodeNames)
-	if err != nil {
-		log.Errorf("Error GenerateAllTrustedPeersAddr: %v", err)
-		return err
+			// check if the multi address is not empty
+			if ma != "" {
+				log.Info("Node: [", no.NodeName, "], found in the DB generating metric: ", " [", ma, "]")
+
+				// Register a multi-address metric
+				m := metrics.MultiAddrs{
+					ServiceName: "torch",
+					NodeName:    no.NodeName,
+					MultiAddr:   ma,
+					Namespace:   no.Namespace,
+					Value:       1,
+				}
+				metrics.RegisterMetric(m)
+			}
+		}
 	}
 
 	return nil
