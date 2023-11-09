@@ -40,28 +40,17 @@ func WatchStatefulSets() error {
 		return err
 	}
 
-	// Variable to keep track of the last processed name
-	lastProcessedName := ""
-
 	// Watch for events on the watcher channel
 	for event := range watcher.ResultChan() {
 		if statefulSet, ok := event.Object.(*v1.StatefulSet); ok {
-			// Check if the name has the "da" prefix
-			if strings.HasPrefix(statefulSet.Name, "da") {
-				// Check if the name is different from the last processed one
-				if statefulSet.Name != lastProcessedName {
-					// Process the name and perform necessary actions
-					err := redis.Producer(statefulSet.Name, queueK8SNodes)
-					if err != nil {
-						log.Error("ERROR adding the node to the queue: ", err)
-						return err
-					}
+			//log.Info("StatefulSet containers: ", statefulSet.Spec.Template.Spec.Containers)
 
-					// Update the last processed name to don't process it more than once.
-					lastProcessedName = statefulSet.Name
-				} else {
-					// cleanup the previous processed to add it in future iterations.
-					lastProcessedName = ""
+			// check if the node is DA, if so, send it to the queue to generate the multi address
+			if strings.HasPrefix(statefulSet.Name, "da") {
+				err := redis.Producer(statefulSet.Name, queueK8SNodes)
+				if err != nil {
+					log.Error("ERROR adding the node to the queue: ", err)
+					return err
 				}
 			}
 		}
