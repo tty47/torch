@@ -80,6 +80,7 @@ func Run(cfg config.MutualPeersConfig) {
 
 	// check if Torch has to generate the metric or not.
 	BackgroundGenerateHashMetric(cfg)
+	BackgroundGenerateLBMetric()
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
@@ -132,6 +133,7 @@ func Run(cfg config.MutualPeersConfig) {
 func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
 	// Check if the config has the consensusNode field defined to generate the metric from the Genesis Hash data.
 	if cfg.MutualPeers[0].ConsensusNode != "" {
+		log.Info("Initializing goroutine to generate the metric: block_height_1")
 		// Initialise the goroutine to generate the metric in the background, only if we specify the node in the config.
 		go func() {
 			log.Info("Consensus node defined to get the first block")
@@ -148,6 +150,31 @@ func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
 				time.Sleep(retryInterval)
 			}
 		}()
+	}
+}
+
+// BackgroundGenerateLBMetric initializes a goroutine to generate the load_balancer metric.
+func BackgroundGenerateLBMetric() {
+	log.Info("Initializing goroutine to generate the metric: load_balancer ")
+
+	// Retrieve the list of Load Balancers
+	_, err := k8s.RetrieveAndGenerateMetrics()
+	if err != nil {
+		log.Printf("Failed to update metrics: %v", err)
+	}
+
+	// Start watching for changes to the services in a separate goroutine
+	done := make(chan error)
+	go k8s.WatchServices(done)
+
+	// Handle errors from WatchServices
+	for {
+		select {
+		case err := <-done:
+			if err != nil {
+				log.Error("Error in WatchServices: ", err)
+			}
+		}
 	}
 }
 
