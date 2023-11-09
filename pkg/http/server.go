@@ -78,6 +78,7 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
 
+	// check if Torch has to generate the metric or not.
 	BackgroundGenerateHashMetric(cfg)
 
 	// Initialize the goroutine to check the nodes in the queue.
