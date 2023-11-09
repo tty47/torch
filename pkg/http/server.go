@@ -80,11 +80,11 @@ func Run(cfg config.MutualPeersConfig) {
 
 	// Check if the config has the consensusNode field defined to generate the metric from the Genesis Hash data.
 	if cfg.MutualPeers[0].ConsensusNode != "" {
-		// Initialise the goroutine.
+		// Initialise the goroutine to generate the metric in the background, only if we specify the node in the config.
 		go func() {
 			log.Info("Consensus node defined to get the first block")
 			for {
-				err := GenerateHashMetrics(cfg, err)
+				err := GenerateHashMetrics(cfg)
 				// check if err is nil, if so, that means that Torch was able to generate the metric.
 				if err == nil {
 					log.Info("Metric generated for the first block...")
@@ -145,7 +145,7 @@ func Run(cfg config.MutualPeersConfig) {
 }
 
 // GenerateHashMetrics generates the metric by getting the first block and calculating the days.
-func GenerateHashMetrics(cfg config.MutualPeersConfig, err error) error {
+func GenerateHashMetrics(cfg config.MutualPeersConfig) error {
 	log.Info("Generating the metric for the first block generated...")
 
 	// Get the genesisHash

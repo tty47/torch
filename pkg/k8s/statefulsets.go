@@ -40,28 +40,21 @@ func WatchStatefulSets() error {
 		return err
 	}
 
-	// Variable to keep track of the last processed name
-	lastProcessedName := ""
-
 	// Watch for events on the watcher channel
 	for event := range watcher.ResultChan() {
+		// Check if the event object is of type *v1.StatefulSet
 		if statefulSet, ok := event.Object.(*v1.StatefulSet); ok {
-			// Check if the name has the "da" prefix
+			// Check if the StatefulSet name has the "da" prefix
 			if strings.HasPrefix(statefulSet.Name, "da") {
-				// Check if the name is different from the last processed one
-				if statefulSet.Name != lastProcessedName {
-					// Process the name and perform necessary actions
+				// Check if the StatefulSet is in the "Running" state
+				if statefulSet.Status.CurrentReplicas > 0 &&
+					statefulSet.Status.Replicas == statefulSet.Status.ReadyReplicas {
+					// Perform necessary actions, such as adding the node to the Redis queue
 					err := redis.Producer(statefulSet.Name, queueK8SNodes)
 					if err != nil {
 						log.Error("ERROR adding the node to the queue: ", err)
 						return err
 					}
-
-					// Update the last processed name to don't process it more than once.
-					lastProcessedName = statefulSet.Name
-				} else {
-					// cleanup the previous processed to add it in future iterations.
-					lastProcessedName = ""
 				}
 			}
 		}
