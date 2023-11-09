@@ -78,25 +78,7 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
 
-	// Check if the config has the consensusNode field defined to generate the metric from the Genesis Hash data.
-	if cfg.MutualPeers[0].ConsensusNode != "" {
-		// Initialise the goroutine to generate the metric in the background, only if we specify the node in the config.
-		go func() {
-			log.Info("Consensus node defined to get the first block")
-			for {
-				err := GenerateHashMetrics(cfg)
-				// check if err is nil, if so, that means that Torch was able to generate the metric.
-				if err == nil {
-					log.Info("Metric generated for the first block...")
-					// The metric was successfully generated, stop the retries.
-					break
-				}
-
-				// Wait for the retry interval before the next execution
-				time.Sleep(retryInterval)
-			}
-		}()
-	}
+	BackgroundGenerateHashMetric(cfg)
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
@@ -142,6 +124,30 @@ func Run(cfg config.MutualPeersConfig) {
 		log.Errorf("Server Shutdown Failed: %v", err)
 	}
 	log.Info("Server Exited Properly")
+}
+
+// BackgroundGenerateHashMetric check if we have defined the consensus in the config, if so, it creates a goroutine
+// to generate the metric
+func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
+	// Check if the config has the consensusNode field defined to generate the metric from the Genesis Hash data.
+	if cfg.MutualPeers[0].ConsensusNode != "" {
+		// Initialise the goroutine to generate the metric in the background, only if we specify the node in the config.
+		go func() {
+			log.Info("Consensus node defined to get the first block")
+			for {
+				err := GenerateHashMetrics(cfg)
+				// check if err is nil, if so, that means that Torch was able to generate the metric.
+				if err == nil {
+					log.Info("Metric generated for the first block...")
+					// The metric was successfully generated, stop the retries.
+					break
+				}
+
+				// Wait for the retry interval before the next execution
+				time.Sleep(retryInterval)
+			}
+		}()
+	}
 }
 
 // GenerateHashMetrics generates the metric by getting the first block and calculating the days.

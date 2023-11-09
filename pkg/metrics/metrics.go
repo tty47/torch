@@ -79,7 +79,7 @@ func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespa
 	}
 
 	// Calculate the days that the chain is live.
-	daysRunning, err := CalculateDaysDifference(earliestBlockTime)
+	daysRunning, err := calculateDaysDifference(earliestBlockTime)
 	if err != nil {
 		log.Error("ERROR: ", err)
 		return err
@@ -106,8 +106,8 @@ func WithMetricsBlockHeight(blockHeight, earliestBlockTime, serviceName, namespa
 	return err
 }
 
-// CalculateDaysDifference based on the date received, returns the number of days since this day.
-func CalculateDaysDifference(inputTimeString string) (int, error) {
+// calculateDaysDifference based on the date received, returns the number of days since this day.
+func calculateDaysDifference(inputTimeString string) (int, error) {
 	layout := "2006-01-02T15:04:05.999999999Z"
 	inputTime, err := time.Parse(layout, inputTimeString)
 	if err != nil {
