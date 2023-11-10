@@ -78,8 +78,8 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
 
-	// check if Torch has to generate the metric or not.
-	BackgroundGenerateHashMetric(cfg)
+	// check if Torch has to generate the metric or not, we invoke this function async to continue the execution flow.
+	go BackgroundGenerateHashMetric(cfg)
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
@@ -131,23 +131,46 @@ func Run(cfg config.MutualPeersConfig) {
 // to generate the metric
 func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
 	// Check if the config has the consensusNode field defined to generate the metric from the Genesis Hash data.
+	log.Info("BackgroundGenerateHashMetric...")
+
 	if cfg.MutualPeers[0].ConsensusNode != "" {
+		log.Info("Initializing goroutine to generate the metric: hash ")
 		// Initialise the goroutine to generate the metric in the background, only if we specify the node in the config.
 		go func() {
 			log.Info("Consensus node defined to get the first block")
-			for {
-				err := GenerateHashMetrics(cfg)
-				// check if err is nil, if so, that means that Torch was able to generate the metric.
-				if err == nil {
-					log.Info("Metric generated for the first block...")
-					// The metric was successfully generated, stop the retries.
-					break
-				}
 
-				// Wait for the retry interval before the next execution
-				time.Sleep(retryInterval)
+			// Watch for events on the watcher channel
+			done := make(chan error)
+			go WatchHashMetric(cfg, done)
+
+			// Handle errors from WatchHashMetric
+			for {
+				select {
+				case err := <-done:
+					if err != nil {
+						log.Error("Error in WatchHashMetric: ", err)
+						// Handle the error as needed
+					}
+				}
 			}
 		}()
+	}
+}
+
+// WatchHashMetric watches for changes to generate hash metrics in the specified interval
+func WatchHashMetric(cfg config.MutualPeersConfig, done chan<- error) {
+	for {
+		err := GenerateHashMetrics(cfg)
+		// check if err is nil, if so, that means that Torch was able to generate the metric.
+		if err == nil {
+			log.Info("Metric generated for the first block...")
+			// The metric was successfully generated, stop the retries.
+			done <- nil
+			return
+		}
+
+		// Wait for the retry interval before the next execution
+		time.Sleep(retryInterval)
 	}
 }
 
