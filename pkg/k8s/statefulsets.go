@@ -54,7 +54,7 @@ func WatchStatefulSets() error {
 			}
 
 			// Check if the StatefulSet is valid based on the conditions
-			if !isStatefulSetValid(statefulSet) {
+			if isStatefulSetValid(statefulSet) {
 				// Perform necessary actions, such as adding the node to the Redis queue
 				err := redis.Producer(statefulSet.Name, queueK8SNodes)
 				if err != nil {
