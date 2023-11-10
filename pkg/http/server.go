@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
@@ -128,75 +129,77 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Exited Properly")
 }
 
-// BackgroundGenerateHashMetric check if we have defined the consensus in the config, if so, it creates a goroutine
-// to generate the metric
+// BackgroundGenerateHashMetric checks if the consensusNode field is defined in the config to generate the metric from the Genesis Hash data.
 func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
-	// Check if the config has the consensusNode field defined to generate the metric from the Genesis Hash data.
 	log.Info("BackgroundGenerateHashMetric...")
 
 	if cfg.MutualPeers[0].ConsensusNode != "" {
 		log.Info("Initializing goroutine to generate the metric: hash ")
-		// Initialise the goroutine to generate the metric in the background, only if we specify the node in the config.
-		go func() {
+
+		// Create an errgroup with a context
+		eg, ctx := errgroup.WithContext(context.Background())
+
+		// Run the WatchHashMetric function in a separate goroutine
+		eg.Go(func() error {
 			log.Info("Consensus node defined to get the first block")
+			return WatchHashMetric(cfg, ctx)
+		})
 
-			// Watch for events on the watcher channel
-			done := make(chan error)
-			go WatchHashMetric(cfg, done)
-
-			// Handle errors from WatchHashMetric
-			for {
-				select {
-				case err := <-done:
-					if err != nil {
-						log.Error("Error in WatchHashMetric: ", err)
-						// Handle the error as needed
-					}
-				}
-			}
-		}()
+		// Wait for all goroutines to finish
+		if err := eg.Wait(); err != nil {
+			log.Error("Error in BackgroundGenerateHashMetric: ", err)
+			// Handle the error as needed
+		}
 	}
 }
 
 // WatchHashMetric watches for changes to generate hash metrics in the specified interval.
-func WatchHashMetric(cfg config.MutualPeersConfig, done chan<- error) {
-	// Use context.WithTimeout to set a clear deadline for the process
-	ctx, cancel := context.WithTimeout(context.Background(), hashMetricGenTimeout)
+func WatchHashMetric(cfg config.MutualPeersConfig, ctx context.Context) error {
+	// Create a new context derived from the input context with a timeout
+	ctx, cancel := context.WithTimeout(ctx, hashMetricGenTimeout)
 	defer cancel()
 
-	// Use a select statement to handle both generating metrics and timing out
-	select {
-	case <-ctx.Done():
-		// Timeout occurred, return an error
-		done <- ctx.Err()
-		return
-	default:
+	// Create an errgroup with the context
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// Run the WatchHashMetric function in a separate goroutine
+	eg.Go(func() error {
 		// Continue generating metrics with retries
 		for {
-			err := GenerateHashMetrics(cfg)
-			// Check if err is nil, if so, Torch was able to generate the metric.
-			if err == nil {
-				log.Info("Metric generated for the first block, let's stop the process successfully...")
-				// The metric was successfully generated, stop the retries.
-				done <- nil
-				return
-			}
-
-			// Log the error
-			log.Error("Error generating hash metrics: ", err)
-
-			// Wait for the retry interval before the next execution using a timer
-			timer := time.NewTimer(retryInterval)
 			select {
 			case <-ctx.Done():
-				log.Info("Context timeout reached, we won't generate the metric as the validator seems to be unavailable.")
-				timer.Stop()
-				return
-			case <-timer.C:
-				// Continue to the next iteration
+				// Context canceled, stop the process
+				log.Info("Context canceled, stopping WatchHashMetric.")
+				return ctx.Err()
+			default:
+				err := GenerateHashMetrics(cfg)
+				// Check if err is nil, if so, Torch was able to generate the metric.
+				if err == nil {
+					log.Info("Metric generated for the first block, let's stop the process successfully...")
+					// The metric was successfully generated, stop the retries.
+					return nil
+				}
+
+				// Log the error
+				log.Error("Error generating hash metrics: ", err)
+
+				// Wait for the retry interval before the next execution using a timer
+				timer := time.NewTimer(retryInterval)
+				select {
+				case <-ctx.Done():
+					// Context canceled, stop the process
+					log.Info("Context canceled, stopping WatchHashMetric.")
+					timer.Stop()
+					return ctx.Err()
+				case <-timer.C:
+					// Continue to the next iteration
+				}
 			}
 		}
-	}
+	})
+
+	// Wait for all goroutines to finish
+	return eg.Wait()
 }
 
 // GenerateHashMetrics generates the metric by getting the first block and calculating the days.
