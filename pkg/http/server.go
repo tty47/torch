@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	retryInterval = 10 * time.Second // retryInterval Retry interval in seconds to generate the consensus metric.
+	retryInterval        = 10 * time.Second // retryInterval Retry interval in seconds to generate the consensus metric.
+	hashMetricGenTimeout = 5 * time.Minute  // hashMetricGenTimeout specify the max time to retry to generate the metric.
 )
 
 // GetHttpPort GetPort retrieves the namespace where the service will be deployed
@@ -157,26 +158,50 @@ func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
 	}
 }
 
-// WatchHashMetric watches for changes to generate hash metrics in the specified interval
+// WatchHashMetric watches for changes to generate hash metrics in the specified interval.
 func WatchHashMetric(cfg config.MutualPeersConfig, done chan<- error) {
-	for {
-		err := GenerateHashMetrics(cfg)
-		// check if err is nil, if so, that means that Torch was able to generate the metric.
-		if err == nil {
-			log.Info("Metric generated for the first block...")
-			// The metric was successfully generated, stop the retries.
-			done <- nil
-			return
-		}
+	// Use context.WithTimeout to set a clear deadline for the process
+	ctx, cancel := context.WithTimeout(context.Background(), hashMetricGenTimeout)
+	defer cancel()
 
-		// Wait for the retry interval before the next execution
-		time.Sleep(retryInterval)
+	// Use a select statement to handle both generating metrics and timing out
+	select {
+	case <-ctx.Done():
+		// Timeout occurred, return an error
+		done <- ctx.Err()
+		return
+	default:
+		// Continue generating metrics with retries
+		for {
+			err := GenerateHashMetrics(cfg)
+			// Check if err is nil, if so, Torch was able to generate the metric.
+			if err == nil {
+				log.Info("Metric generated for the first block, let's stop the process successfully...")
+				// The metric was successfully generated, stop the retries.
+				done <- nil
+				return
+			}
+
+			// Log the error
+			log.Error("Error generating hash metrics: ", err)
+
+			// Wait for the retry interval before the next execution using a timer
+			timer := time.NewTimer(retryInterval)
+			select {
+			case <-ctx.Done():
+				log.Info("Context timeout reached, we won't generate the metric as the validator seems to be unavailable.")
+				timer.Stop()
+				return
+			case <-timer.C:
+				// Continue to the next iteration
+			}
+		}
 	}
 }
 
 // GenerateHashMetrics generates the metric by getting the first block and calculating the days.
 func GenerateHashMetrics(cfg config.MutualPeersConfig) error {
-	log.Info("Generating the metric for the first block generated...")
+	log.Info("Trying to generate the metric for the first block generated...")
 
 	// Get the genesisHash
 	blockHash, earliestBlockTime, err := nodes.GenesisHash(cfg.MutualPeers[0].ConsensusNode)
