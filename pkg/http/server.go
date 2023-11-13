@@ -11,12 +11,18 @@ import (
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/celestiaorg/torch/config"
 	"github.com/celestiaorg/torch/pkg/db/redis"
 	"github.com/celestiaorg/torch/pkg/k8s"
 	"github.com/celestiaorg/torch/pkg/metrics"
 	"github.com/celestiaorg/torch/pkg/nodes"
+)
+
+const (
+	retryInterval        = 10 * time.Second // retryInterval Retry interval in seconds to generate the consensus metric.
+	hashMetricGenTimeout = 5 * time.Minute  // hashMetricGenTimeout specify the max time to retry to generate the metric.
 )
 
 // GetHttpPort GetPort retrieves the namespace where the service will be deployed
@@ -57,13 +63,6 @@ func Run(cfg config.MutualPeersConfig) {
 		return
 	}
 
-	// generate the metric from the Genesis Hash data
-	notOk := GenerateHashMetrics(cfg, err)
-	if notOk {
-		log.Error("Error registering metric block_height_1")
-		return
-	}
-
 	// Create the server
 	server := &http.Server{
 		Addr:    ":" + httpPort,
@@ -80,6 +79,9 @@ func Run(cfg config.MutualPeersConfig) {
 	}()
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
+
+	// check if Torch has to generate the metric or not, we invoke this function async to continue the execution flow.
+	go BackgroundGenerateHashMetric(cfg)
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
@@ -127,23 +129,116 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Exited Properly")
 }
 
-func GenerateHashMetrics(cfg config.MutualPeersConfig, err error) bool {
-	// Get the genesisHash
-	// check if the config has the consensusNode field defined
+// BackgroundGenerateHashMetric checks if the consensusNode field is defined in the config to generate the metric from the Genesis Hash data.
+func BackgroundGenerateHashMetric(cfg config.MutualPeersConfig) {
+	log.Info("BackgroundGenerateHashMetric...")
+
 	if cfg.MutualPeers[0].ConsensusNode != "" {
-		blockHash, earliestBlockTime := nodes.GenesisHash(cfg)
-		err = metrics.WithMetricsBlockHeight(
-			blockHash,
-			earliestBlockTime,
-			cfg.MutualPeers[0].ConsensusNode,
-			os.Getenv("POD_NAMESPACE"),
-		)
-		if err != nil {
-			log.Errorf("Error registering metric block_height_1: %v", err)
-			return true
+		log.Info("Initializing goroutine to generate the metric: hash ")
+
+		// Create an errgroup with a context
+		eg, ctx := errgroup.WithContext(context.Background())
+
+		// Run the WatchHashMetric function in a separate goroutine
+		eg.Go(func() error {
+			log.Info("Consensus node defined to get the first block")
+			return WatchHashMetric(cfg, ctx)
+		})
+
+		// Wait for all goroutines to finish
+		if err := eg.Wait(); err != nil {
+			log.Error("Error in BackgroundGenerateHashMetric: ", err)
+			// Handle the error as needed
 		}
 	}
-	return false
+}
+
+// WatchHashMetric watches for changes to generate hash metrics in the specified interval.
+func WatchHashMetric(cfg config.MutualPeersConfig, ctx context.Context) error {
+	// Create a new context derived from the input context with a timeout
+	ctx, cancel := context.WithTimeout(ctx, hashMetricGenTimeout)
+	defer cancel()
+
+	// Create an errgroup with the context
+	eg, ctx := errgroup.WithContext(ctx)
+
+	// Run the WatchHashMetric function in a separate goroutine
+	eg.Go(func() error {
+		return watchMetricsWithRetry(cfg, ctx)
+	})
+
+	// Wait for all goroutines to finish
+	return eg.Wait()
+}
+
+// watchMetricsWithRetry is a helper function for WatchHashMetric that encapsulates the retry logic.
+func watchMetricsWithRetry(cfg config.MutualPeersConfig, ctx context.Context) error {
+	// Continue generating metrics with retries
+	for {
+		select {
+		case <-ctx.Done():
+			// Context canceled, stop the process
+			log.Info("Context canceled, stopping WatchHashMetric.")
+			return ctx.Err()
+		default:
+			err := GenerateHashMetrics(cfg)
+			// Check if err is nil, if so, Torch was able to generate the metric.
+			if err == nil {
+				log.Info("Metric generated for the first block, let's stop the process successfully...")
+				// The metric was successfully generated, stop the retries.
+				return nil
+			}
+
+			// Log the error
+			log.Error("Error generating hash metrics: ", err)
+
+			// Wait for the retry interval before the next execution using a timer
+			if err := waitForRetry(ctx); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// waitForRetry is a helper function to wait for the retry interval or stop if the context is canceled.
+func waitForRetry(ctx context.Context) error {
+	timer := time.NewTimer(retryInterval)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		// Context canceled, stop the process
+		log.Info("Context canceled, stopping WatchHashMetric.")
+		return ctx.Err()
+	case <-timer.C:
+		// Continue to the next iteration
+		return nil
+	}
+}
+
+// GenerateHashMetrics generates the metric by getting the first block and calculating the days.
+func GenerateHashMetrics(cfg config.MutualPeersConfig) error {
+	log.Info("Trying to generate the metric for the first block generated...")
+
+	// Get the genesisHash
+	blockHash, earliestBlockTime, err := nodes.GenesisHash(cfg.MutualPeers[0].ConsensusNode)
+	if err != nil {
+		return err
+	}
+
+	// check if earliestBlockTime is not empty, otherwise torch skips this process for now.
+	err = metrics.WithMetricsBlockHeight(
+		blockHash,
+		earliestBlockTime,
+		cfg.MutualPeers[0].ConsensusNode,
+		os.Getenv("POD_NAMESPACE"),
+	)
+	if err != nil {
+		log.Error("Error registering metric block_height_1: ", err)
+		return err
+	}
+
+	return nil
 }
 
 // RegisterMetrics generates and registers the metrics for all nodes in case they already exist in the DB.
