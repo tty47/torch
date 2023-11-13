@@ -164,42 +164,56 @@ func WatchHashMetric(cfg config.MutualPeersConfig, ctx context.Context) error {
 
 	// Run the WatchHashMetric function in a separate goroutine
 	eg.Go(func() error {
-		// Continue generating metrics with retries
-		for {
-			select {
-			case <-ctx.Done():
-				// Context canceled, stop the process
-				log.Info("Context canceled, stopping WatchHashMetric.")
-				return ctx.Err()
-			default:
-				err := GenerateHashMetrics(cfg)
-				// Check if err is nil, if so, Torch was able to generate the metric.
-				if err == nil {
-					log.Info("Metric generated for the first block, let's stop the process successfully...")
-					// The metric was successfully generated, stop the retries.
-					return nil
-				}
-
-				// Log the error
-				log.Error("Error generating hash metrics: ", err)
-
-				// Wait for the retry interval before the next execution using a timer
-				timer := time.NewTimer(retryInterval)
-				select {
-				case <-ctx.Done():
-					// Context canceled, stop the process
-					log.Info("Context canceled, stopping WatchHashMetric.")
-					timer.Stop()
-					return ctx.Err()
-				case <-timer.C:
-					// Continue to the next iteration
-				}
-			}
-		}
+		return watchMetricsWithRetry(cfg, ctx)
 	})
 
 	// Wait for all goroutines to finish
 	return eg.Wait()
+}
+
+// watchMetricsWithRetry is a helper function for WatchHashMetric that encapsulates the retry logic.
+func watchMetricsWithRetry(cfg config.MutualPeersConfig, ctx context.Context) error {
+	// Continue generating metrics with retries
+	for {
+		select {
+		case <-ctx.Done():
+			// Context canceled, stop the process
+			log.Info("Context canceled, stopping WatchHashMetric.")
+			return ctx.Err()
+		default:
+			err := GenerateHashMetrics(cfg)
+			// Check if err is nil, if so, Torch was able to generate the metric.
+			if err == nil {
+				log.Info("Metric generated for the first block, let's stop the process successfully...")
+				// The metric was successfully generated, stop the retries.
+				return nil
+			}
+
+			// Log the error
+			log.Error("Error generating hash metrics: ", err)
+
+			// Wait for the retry interval before the next execution using a timer
+			if err := waitForRetry(ctx); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// waitForRetry is a helper function to wait for the retry interval or stop if the context is canceled.
+func waitForRetry(ctx context.Context) error {
+	timer := time.NewTimer(retryInterval)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		// Context canceled, stop the process
+		log.Info("Context canceled, stopping WatchHashMetric.")
+		return ctx.Err()
+	case <-timer.C:
+		// Continue to the next iteration
+		return nil
+	}
 }
 
 // GenerateHashMetrics generates the metric by getting the first block and calculating the days.
