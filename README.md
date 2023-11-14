@@ -254,14 +254,14 @@ We are using Redis in two different ways:
 
 ## Metrics
 
-### Multi Address
+### MultiAddress
 
 Custom metrics to expose the nodes multi-address:
 
 - `multiaddr`: This metric represents the nodes Multi Address:
   - `service_name`: The service name. In this case, it is set to **torch**.
   - `node_name`: The name of the node.
-  - `multiaddress`: Node Multi Address.
+  - `multiaddress`: Node MultiAddress.
   - `namespace`: The namespace in which the torch is deployed.
   - `value`: The value of the metric. In this example, it is set to 1.
 
