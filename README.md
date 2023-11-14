@@ -10,6 +10,11 @@ You can use Torch to manage the nodes connections from a config file and Torch w
 
 Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses information and stores them in a Redis instance, also, it provides some metrics to expose the node's IDs through the `/metrics` endpoint.
 
+Torch automatically detects Load Balancer resources in a Kubernetes cluster and exposes metrics related to these Load Balancers.
+The service uses OpenTelemetry to instrument the metrics and Prometheus to expose them.
+It uses the Kubernetes API server with a watcher to receive events from it. Then filters the list to include only services of type **LoadBalancer**. 
+For each LoadBalancer service found, it retrieves the LoadBalancer public IP and name and generates metrics with custom labels. These metrics are then exposed via a Prometheus endpoint, making them available for monitoring and visualization in Grafana or other monitoring tools.
+
 ---
 
 ## Workflow
@@ -243,6 +248,66 @@ Torch uses [Redis](https://redis.io/) as a DB, so to use Torch, you need to have
 
 We are using Redis in two different ways:
 - Store the Nodes IDs and reuse them.
-- As a message broker, where Torch uses Producer & Consumer approach to process data async.
+- As a message broker, Torch uses the Producer & Consumer approach to process data async.
+
+---
+
+## Metrics
+
+### Multi Address
+
+Custom metrics to expose the nodes multi-address:
+
+- `multiaddr`: This metric represents the nodes Multi Address:
+  - `service_name`: The service name. In this case, it is set to **torch**.
+  - `node_name`: The name of the node.
+  - `multiaddress`: Node Multi Address.
+  - `namespace`: The namespace in which the torch is deployed.
+  - `value`: The value of the metric. In this example, it is set to 1.
+
+### BlockHeight
+
+Custom metrics to expose the first block height of the chain:
+
+- `block_height_1`: Name of the metric to represent the first block height of the chain:
+  - `service_name`: The service name. In this case, it is set to **torch**.
+  - `block_height_1`: First block id generated
+  - `earliest_block_time`: Timestamp when the chain was created.
+  - `days_running`: Number of days that the chain is running.
+  - `namespace`: The namespace in which the torch is deployed.
+  - `value`: The value of the metric. In this example, it is set to 1.
+
+### Load Balancer
+
+Custom metrics to expose the LoadBalancer public IPs:
+
+- `load_balancer`: This metric represents the LoadBalancer resource and includes the following labels:
+  - `service_name`: The service name. In this case, it is set to **torch**.
+  - `load_balancer_name`: The name of the LoadBalancer service.
+  - `load_balancer_ip`: The IP address of the LoadBalancer.
+  - `namespace`: The namespace in which the LoadBalancer is deployed.
+  - `value`: The value of the metric. In this example, it is set to 1, but it can be customized to represent different load balancing states.
+
+  
+---
+  
+## Monitoring and Visualization
+
+Torch exposes some custom metrics through the Prometheus endpoint.
+You can use Grafana to connect to Prometheus and create custom dashboards to visualize these metrics.
+
+To access the Prometheus and Grafana dashboards and view the metrics, follow these steps:
+
+1. Access the Prometheus dashboard:
+- Open a web browser and navigate to the Prometheus server's URL (e.g., `http://prometheus-server:9090`).
+- In the Prometheus web interface, you can explore and query the metrics collected by the Service Torch.
+
+2. Access the Grafana dashboard:
+- Open a web browser and navigate to the Grafana server's URL (e.g., `http://grafana-server:3000`).
+- Log in to Grafana using your credentials.
+- Create a new dashboard or import an existing one to visualize the LoadBalancer metrics from Prometheus.
+- Use the `load_balancer` metric and its labels to filter and display the relevant information.
+
+Customizing dashboards and setting up alerts in Grafana will help you monitor the performance and health of your LoadBalancer resources effectively.
 
 ---
