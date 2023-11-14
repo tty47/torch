@@ -48,14 +48,11 @@ func WatchStatefulSets() error {
 		// Check if the event object is of type *v1.StatefulSet
 		if statefulSet, ok := event.Object.(*v1.StatefulSet); ok {
 			if !ok {
-				// If it's not a StatefulSet, log a warning and continue with the next event.
 				log.Warn("Received an event that is not a StatefulSet. Skipping this resource...")
 				continue
 			}
 
-			// Check if the StatefulSet is valid based on the conditions
 			if isStatefulSetValid(statefulSet) {
-				// Perform necessary actions, such as adding the node to the Redis queue
 				err := redis.Producer(statefulSet.Name, queueK8SNodes)
 				if err != nil {
 					log.Error("ERROR adding the node to the queue: ", err)
