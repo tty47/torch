@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"golang.org/x/sync/errgroup"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/jrmanes/torch/config"
 	"github.com/jrmanes/torch/pkg/db/redis"
@@ -80,9 +80,9 @@ func Run(cfg config.MutualPeersConfig) {
 	log.Info("Server Started...")
 	log.Info("Listening on port: " + httpPort)
 
-	go BackgroundGenerateLBMetric()
-	// check if Torch has to generate the metric or not.
+	// check if Torch has to generate the metric or not, we invoke this function async to continue the execution flow.
 	go BackgroundGenerateHashMetric(cfg)
+	go BackgroundGenerateLBMetric()
 
 	// Initialize the goroutine to check the nodes in the queue.
 	log.Info("Initializing queues to process the nodes...")
