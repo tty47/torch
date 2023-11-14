@@ -12,7 +12,7 @@ Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses
 
 Torch automatically detects Load Balancer resources in a Kubernetes cluster and exposes metrics related to these Load Balancers.
 The service uses OpenTelemetry to instrument the metrics and Prometheus to expose them.
-It uses the Kubernetes API server with a watcher to receive events from it. Then filters the list to include only services of type **LoadBalancer**. 
+It uses the Kubernetes API server with a watcher to receive events from it. Then filters the list to include only services of type **LoadBalancer**.
 For each LoadBalancer service found, it retrieves the LoadBalancer public IP and name and generates metrics with custom labels. These metrics are then exposed via a Prometheus endpoint, making them available for monitoring and visualization in Grafana or other monitoring tools.
 
 ---
@@ -290,7 +290,7 @@ Custom metrics to expose the LoadBalancer public IPs:
 
   
 ---
-  
+
 ## Monitoring and Visualization
 
 Torch exposes some custom metrics through the Prometheus endpoint.
