@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -20,17 +21,21 @@ func RetrieveAndGenerateMetrics() ([]metrics.LoadBalancer, error) {
 	// Get list of LBs
 	svc, err := ListServices()
 	if err != nil {
-		log.Printf("Failed to retrieve the LoadBalancers: %v", err)
+		log.Error("Failed to retrieve the LoadBalancers: ", err)
 		return nil, err
 	}
 
 	// Get the list of the LBs
-	loadBalancers := GetLoadBalancers(svc)
+	loadBalancers, err := GetLoadBalancers(svc)
+	if err != nil {
+		log.Error("Error getting the load balancers: ", err)
+		return nil, err
+	}
 
 	// Generate the metrics with the LBs
 	err = metrics.WithMetricsLoadBalancer(loadBalancers)
 	if err != nil {
-		log.Printf("Failed to update metrics: %v", err)
+		log.Error("Failed to update metrics: ", err)
 		return nil, err
 	}
 
@@ -64,7 +69,7 @@ func ListServices() (*corev1.ServiceList, error) {
 }
 
 // GetLoadBalancers filters the list of services to include only Load Balancers and returns a list of them
-func GetLoadBalancers(svc *corev1.ServiceList) []metrics.LoadBalancer {
+func GetLoadBalancers(svc *corev1.ServiceList) ([]metrics.LoadBalancer, error) {
 	var loadBalancers []metrics.LoadBalancer
 
 	for _, svc := range svc.Items {
@@ -85,7 +90,11 @@ func GetLoadBalancers(svc *corev1.ServiceList) []metrics.LoadBalancer {
 		}
 	}
 
-	return loadBalancers
+	if len(loadBalancers) == 0 {
+		return nil, errors.New("no Load Balancers found")
+	}
+
+	return loadBalancers, nil
 }
 
 // WatchServices watches for changes to the services in the specified namespace and updates the metrics accordingly
@@ -120,7 +129,13 @@ func WatchServices(done chan<- error) {
 	for event := range watcher.ResultChan() {
 		if service, ok := event.Object.(*corev1.Service); ok {
 			if service.Spec.Type == corev1.ServiceTypeLoadBalancer {
-				loadBalancers := GetLoadBalancers(&corev1.ServiceList{Items: []corev1.Service{*service}})
+				loadBalancers, err := GetLoadBalancers(&corev1.ServiceList{Items: []corev1.Service{*service}})
+				if err != nil {
+					log.Error("Failed to get the load balancers metrics: %v", err)
+					done <- err
+					return
+				}
+
 				if err := metrics.WithMetricsLoadBalancer(loadBalancers); err != nil {
 					log.Error("Failed to update metrics with load balancers: ", err)
 					done <- err

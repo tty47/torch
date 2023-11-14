@@ -45,7 +45,6 @@ func WatchStatefulSets() error {
 
 	// Watch for events on the watcher channel
 	for event := range watcher.ResultChan() {
-		// Check if the event object is of type *v1.StatefulSet
 		if statefulSet, ok := event.Object.(*v1.StatefulSet); ok {
 			if !ok {
 				log.Warn("Received an event that is not a StatefulSet. Skipping this resource...")
