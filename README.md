@@ -12,7 +12,7 @@ Torch uses the Kubernetes API to manage the nodes, it gets their multi addresses
 
 Torch automatically detects Load Balancer resources in a Kubernetes cluster and exposes metrics related to these Load Balancers.
 The service uses OpenTelemetry to instrument the metrics and Prometheus to expose them.
-It uses the Kubernetes API server with a watcher to receive events from it. Then filters the list to include only services of type **LoadBalancer**. 
+It uses the Kubernetes API server with a watcher to receive events from it. Then filters the list to include only services of type **LoadBalancer**.
 For each LoadBalancer service found, it retrieves the LoadBalancer public IP and name and generates metrics with custom labels. These metrics are then exposed via a Prometheus endpoint, making them available for monitoring and visualization in Grafana or other monitoring tools.
 
 ---
@@ -254,6 +254,29 @@ We are using Redis in two different ways:
 
 ## Metrics
 
+### Multi Address
+
+Custom metrics to expose the nodes multi-address:
+
+- `multiaddr`: This metric represents the nodes Multi Address:
+  - `service_name`: The service name. In this case, it is set to **torch**.
+  - `node_name`: The name of the node.
+  - `multiaddress`: Node Multi Address.
+  - `namespace`: The namespace in which the torch is deployed.
+  - `value`: The value of the metric. In this example, it is set to 1.
+
+### BlockHeight
+
+Custom metrics to expose the first block height of the chain:
+
+- `block_height_1`: Name of the metric to represent the first block height of the chain:
+  - `service_name`: The service name. In this case, it is set to **torch**.
+  - `block_height_1`: First block id generated
+  - `earliest_block_time`: Timestamp when the chain was created.
+  - `days_running`: Number of days that the chain is running.
+  - `namespace`: The namespace in which the torch is deployed.
+  - `value`: The value of the metric. In this example, it is set to 1.
+
 ### Load Balancer
 
 Custom metrics to expose the LoadBalancer public IPs:
@@ -265,8 +288,9 @@ Custom metrics to expose the LoadBalancer public IPs:
   - `namespace`: The namespace in which the LoadBalancer is deployed.
   - `value`: The value of the metric. In this example, it is set to 1, but it can be customized to represent different load balancing states.
 
----
   
+---
+
 ## Monitoring and Visualization
 
 Torch exposes some custom metrics through the Prometheus endpoint.
