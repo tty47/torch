@@ -163,7 +163,7 @@ func WithMetricsLoadBalancer(loadBalancers []LoadBalancer) error {
 	// Register the callback with the meter and the Float64ObservableGauge.
 	_, err = meter.RegisterCallback(callback, loadBalancersGauge)
 	if err != nil {
-		log.Error("Error registering callback: %v", err)
+		log.Error("Error registering callback: ", err)
 		return err
 	}
 
@@ -207,7 +207,7 @@ func RegisterConsensusNodeMetric(nodeID, nodeName, namespace string) error {
 	// Register the callback with the meter and the ObservableGauge.
 	_, err = meter.RegisterCallback(callback, consensusNodeGauge)
 	if err != nil {
-		log.Error("Error registering callback: %v", err)
+		log.Error("Error registering callback: ", err)
 		return err
 	}
 
