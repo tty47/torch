@@ -9,10 +9,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/jrmanes/torch/config"
-	"github.com/jrmanes/torch/pkg/db/redis"
-	"github.com/jrmanes/torch/pkg/k8s"
-	"github.com/jrmanes/torch/pkg/metrics"
+	"github.com/tty47/torch/config"
+	"github.com/tty47/torch/pkg/db/redis"
+	"github.com/tty47/torch/pkg/k8s"
+	"github.com/tty47/torch/pkg/metrics"
 )
 
 const (

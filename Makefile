@@ -1,6 +1,6 @@
 PROJECT_NAME := $(shell basename `pwd`)
 REPOSITORY_NAME := $(shell basename `pwd`)
-REGISTRY_NAME=ghcr.io/jrmanes
+REGISTRY_NAME=ghcr.io/tty47
 LOCAL_DEV=local
 
 # Go

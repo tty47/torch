@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/jrmanes/torch/config"
+	"github.com/tty47/torch/config"
 )
 
 func TestHasAddrAlready(t *testing.T) {

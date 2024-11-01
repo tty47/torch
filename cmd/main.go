@@ -8,9 +8,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	"github.com/jrmanes/torch/config"
-	handlers "github.com/jrmanes/torch/pkg/http"
-	"github.com/jrmanes/torch/pkg/k8s"
+	"github.com/tty47/torch/config"
+	handlers "github.com/tty47/torch/pkg/http"
+	"github.com/tty47/torch/pkg/k8s"
 )
 
 // ParseFlags parses the command-line flags and reads the configuration file.

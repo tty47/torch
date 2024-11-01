@@ -13,11 +13,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/jrmanes/torch/config"
-	"github.com/jrmanes/torch/pkg/db/redis"
-	"github.com/jrmanes/torch/pkg/k8s"
-	"github.com/jrmanes/torch/pkg/metrics"
-	"github.com/jrmanes/torch/pkg/nodes"
+	"github.com/tty47/torch/config"
+	"github.com/tty47/torch/pkg/db/redis"
+	"github.com/tty47/torch/pkg/k8s"
+	"github.com/tty47/torch/pkg/metrics"
+	"github.com/tty47/torch/pkg/nodes"
 )
 
 const (

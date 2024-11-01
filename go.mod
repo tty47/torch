@@ -1,4 +1,4 @@
-module github.com/jrmanes/torch
+module github.com/tty47/torch
 
 go 1.21
 

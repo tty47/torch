@@ -10,8 +10,8 @@ import (
 	"github.com/adjust/rmq/v5"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/jrmanes/torch/config"
-	"github.com/jrmanes/torch/pkg/db/redis"
+	"github.com/tty47/torch/config"
+	"github.com/tty47/torch/pkg/db/redis"
 )
 
 const (

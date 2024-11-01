@@ -6,7 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/jrmanes/torch/config"
+	"github.com/tty47/torch/config"
 )
 
 func Router(r *mux.Router, cfg config.MutualPeersConfig) *mux.Router {

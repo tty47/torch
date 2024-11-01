@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/jrmanes/torch/pkg/db/redis"
+	"github.com/tty47/torch/pkg/db/redis"
 )
 
 const (

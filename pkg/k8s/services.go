@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/jrmanes/torch/pkg/metrics"
+	"github.com/tty47/torch/pkg/metrics"
 )
 
 // RetrieveAndGenerateMetrics retrieves the list of Load Balancers and generates metrics
